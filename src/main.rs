@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate rocket;
-
 use rocket::form::Form;
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
@@ -8,12 +7,21 @@ use rocket::{Build, Rocket, State};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
-use std::time::SystemTime;
+use std::time::{SystemTime};
+use chrono::DateTime;
+use chrono_tz::Tz;
+
+pub static POST_COOLDOWN: u64 = 5;
 
 struct Messages {
     // hash map consists of the ip address of the user: a vector of the messages they have left
     messages: Arc<Mutex<HashMap<String, User>>>,
 }
+
+// struct Message {
+//     text: String,
+//     time_stamp: DateTime<Tz>
+// }
 
 struct User {
     messages: Vec<String>,
@@ -27,14 +35,26 @@ impl Default for User {
 }
 
 impl User {
+    /// Create a new user from a list of messages, time of last post established
     fn new(message_vec: Vec<String>) -> User {
-        User {messages: message_vec, last_time_post: SystemTime::now() }
+        User { messages: message_vec, last_time_post: SystemTime::now() }
     }
-
+    /// Add a new message to a user, and update their last time of posting
     fn push(&mut self,msg: String) {
         self.messages.push(msg);
+        self.last_time_post = SystemTime::now();
     }
-
+    /// Returns true if the user can post, and false if the user can not post.
+    fn can_post(&self) -> bool {
+        return match SystemTime::now().duration_since(self.last_time_post) {
+            Ok(dur) => {
+                dur.as_secs() >= POST_COOLDOWN
+            }
+            Err(_) => {
+                false
+            }
+        }
+    }
 }
 
 impl Default for Messages {
@@ -53,9 +73,7 @@ fn view(req: SocketAddr, messages: &State<Messages>) -> String {
         Some(user) => { user.messages.clone() }
     };
 
-    let user_info = format!("{:?}", msg_vec).to_string();
-
-    user_info
+    format!("{:?}", msg_vec).to_string()
 }
 
 #[get("/")]
@@ -115,7 +133,6 @@ fn submit_message(
     messages: &State<Messages>,
 ) -> Redirect {
     println!("{:#?}", message.msg);
-
     let mut lock = messages.messages.lock().unwrap();
     let user_ip = &req.ip().to_string();
     match lock.get_mut(user_ip) {
@@ -125,12 +142,22 @@ fn submit_message(
             lock.insert(user_ip.to_string(), User::new(new_vec)); // insert the new vector with the key of the users ip address
         }
         Some(user) => {
-            user.push(message.msg.to_string());
+            // let time_since_last_post = SystemTime::now().duration_since(user.last_time_post).unwrap().as_secs();
+            if user.can_post() { // if the last time the user posted was 5 or more seconds ago
+                user.push(message.msg.to_string()); // push their new message, this also updates their last time of posting
+                // user.last_time_post = SystemTime::now(); // update their last post time
+            } else {
+                user.last_time_post = SystemTime::now();
+                return Redirect::to(uri!("/slow_down")); // early return and tell the user to slow down
+            }
         }
     };
-
-    // format!("IP: {}, messages: {:?}",user_ip ,msg_vec).to_string()
     Redirect::to(uri!("/"))
+}
+
+#[get("/slow_down")]
+fn slow_down(_req: SocketAddr, _messages: &State<Messages>) -> String {
+    format!("Please slow down, you are trying to post too often :)")
 }
 
 #[get("/submit_message")]
@@ -143,6 +170,6 @@ fn rocket() -> Rocket<Build> {
     // using this return type isn't shown in the documentation from my minimal looking, but makes intellij happy.
     rocket::build().manage(Messages::default()).mount(
         "/",
-        routes![index, submit_message, new, submit_message_no_data, view],
+        routes![index, submit_message, new, submit_message_no_data, view,slow_down],
     )
 }
