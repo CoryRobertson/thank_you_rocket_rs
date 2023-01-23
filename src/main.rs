@@ -55,7 +55,7 @@ fn save_messages(messages: MutexGuard<HashMap<String, User>>) {
             //     )
             // }; // get a new date and time stamp for the file to save to
 
-            format!("./output/messages.sav")
+            "./output/messages.sav".to_string()
         };
 
         let mut file = File::create(file_name).unwrap();
@@ -131,10 +131,10 @@ impl User {
     }
     /// Returns true if the user can post, and false if the user can not post.
     fn can_post(&self) -> bool {
-        return match SystemTime::now().duration_since(self.last_time_post) {
+        match SystemTime::now().duration_since(self.last_time_post) {
             Ok(dur) => dur.as_secs() >= POST_COOLDOWN,
             Err(_) => false,
-        };
+        }
     }
 }
 
@@ -157,7 +157,7 @@ fn view(req: SocketAddr, messages: &State<Messages>) -> String {
     };
     let text_vec: Vec<String> = msg_vec.into_iter().map(|msg| msg.text).collect();
 
-    format!("{:?}", text_vec).to_string()
+    format!("{:?}", text_vec)
 }
 
 #[get("/")]
@@ -254,17 +254,17 @@ fn submit_message(
 
 #[get("/slow_down")]
 fn slow_down() -> String {
-    format!("Please slow down, you are trying to post too often :)")
+    "Please slow down, you are trying to post too often :)".to_string()
 }
 
 #[get("/too_long")]
 fn too_long() -> String {
-    format!("That message is too long, please try to make it shorter :)")
+    "That message is too long, please try to make it shorter :)".to_string()
 }
 
 #[get("/error_message")]
 fn error_message() -> String {
-    format!("That message for some reason was unable to be saved (most likely contains something that is not ascii). ¯\\_(ツ)_/¯")
+    "That message for some reason was unable to be saved (most likely contains something that is not ascii). ¯\\_(ツ)_/¯".to_string()
 }
 
 #[get("/submit_message")]
