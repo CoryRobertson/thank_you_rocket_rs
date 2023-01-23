@@ -7,7 +7,7 @@ use rocket::response::Redirect;
 use rocket::{Build, Rocket, State};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::sleep;
@@ -63,10 +63,11 @@ fn save_messages(messages: MutexGuard<HashMap<String, User>>) {
             "./output/messages.sav".to_string()
         };
 
-        let mut file = File::create(file_name).unwrap();
+        let file = File::create(file_name).unwrap(); 
+        let mut bw = BufWriter::new(file);
         for (ip, user) in messages.iter() {
             let messages = &user.messages;
-            let _ = file.write(format!("{ip}:\n").as_bytes()).unwrap();
+            let _ = bw.write(format!("{ip}:\n").as_bytes()).unwrap();
             for msg in messages {
                 let date = msg.time_stamp;
                 let am_pm = match date.hour12().0 {
@@ -87,11 +88,12 @@ fn save_messages(messages: MutexGuard<HashMap<String, User>>) {
                     date.day(),
                     time_format,
                 );
-                let _ = file
+                let _ = bw
                     .write(format!("\t[ {} ]: {}\n", time_stamp_text, msg.text).as_bytes())
                     .unwrap();
             }
         }
+        let _ = bw.flush();
     }
 }
 
@@ -234,7 +236,7 @@ fn submit_message(
         return Redirect::to(uri!("/error_message")); // only allow user to use ascii text in their message
     }
 
-    if message.msg.len() >= MESSAGE_LENGTH_CAP {
+    if message.msg.len() > MESSAGE_LENGTH_CAP {
         return Redirect::to(uri!("/too_long")); // early return and tell the user to write shorter messages
     }
 
