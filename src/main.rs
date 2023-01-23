@@ -1,30 +1,80 @@
 #[macro_use]
 extern crate rocket;
-use chrono::{DateTime, Datelike, Local, Timelike};
+use chrono::serde::ts_seconds;
+use chrono::{DateTime, Datelike, Local, Timelike, Utc};
 use rocket::form::Form;
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
 use rocket::{Build, Rocket, State};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::{BufWriter, Read, Write};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::sleep;
 use std::time::{Duration, SystemTime};
 use std::{fs, thread};
 
-/// The duration in seconds that a user must wait between each message.
+/// The duration in seconds that a user must wait between each message. debug only
+#[cfg(debug_assertions)]
 pub static POST_COOLDOWN: u64 = 5;
+
+/// The duration in seconds that a user must wait between each message. release only
+#[cfg(not(debug_assertions))]
+pub static POST_COOLDOWN: u64 = 60;
 
 /// The maximum length of a message that can be left by a user.
 pub static MESSAGE_LENGTH_CAP: usize = 150;
+
+pub static SERDE_FILE_NAME: &str = "messages.ser";
+pub static RENDER_FILE_NAME: &str = "messages.sav";
 
 #[derive(Clone)]
 /// The state struct for the rocket web frame work.
 struct Messages {
     // hash map consists of the ip address as a key, and the user struct itself.
     messages: Arc<Mutex<HashMap<String, User>>>,
+}
+
+#[derive(Serialize, Deserialize)]
+/// A serializable version of the Messages struct, used only for saving.
+struct StateSave {
+    messages: HashMap<String, User>,
+}
+
+fn load_messages() -> StateSave {
+    let file_name = format!("./output/{}", SERDE_FILE_NAME);
+    let mut file = match File::open(file_name) {
+        Ok(f) => f,
+        Err(err) => {
+            println!("Didnt find serde file name. {}", err);
+            return StateSave {
+                messages: HashMap::new(),
+            };
+        }
+    };
+
+    let mut s = String::new();
+    match file.read_to_string(&mut s) {
+        Ok(_) => {}
+        Err(err) => {
+            println!("Unable to read to string from save file. {}", err);
+            return StateSave {
+                messages: HashMap::new(),
+            };
+        }
+    }
+
+    match serde_json::from_str::<StateSave>(&s) {
+        Ok(state) => state,
+        Err(err) => {
+            println!("ERROR UNABLE TO READ STATE SAVE FROM \"messages.ser\", using default message list \n {}", err);
+            StateSave {
+                messages: HashMap::new(),
+            }
+        }
+    }
 }
 
 /// Saves all messages to the system in a file.
@@ -48,6 +98,22 @@ fn save_messages(messages: MutexGuard<HashMap<String, User>>) {
                 }
             }
         }
+
+        {
+            // block of code to save the serializable state of the program, useful for allowing users to never lose their messages.
+            let state_save = StateSave {
+                messages: messages.clone(),
+            };
+
+            let ser = serde_json::to_string(&state_save).unwrap();
+
+            let ser_file_name = format!("./output/{}", SERDE_FILE_NAME);
+
+            let mut ser_file = File::create(ser_file_name).unwrap();
+
+            ser_file.write_all(ser.as_ref()).unwrap();
+        }
+
         let file_name = {
             // maybe use this later, at the moment not sure about it.
             // let date_for_file_name = {
@@ -59,17 +125,17 @@ fn save_messages(messages: MutexGuard<HashMap<String, User>>) {
             //         ts.day(),
             //     )
             // }; // get a new date and time stamp for the file to save to
-
-            "./output/messages.sav".to_string()
+            format!("./output/{}", RENDER_FILE_NAME)
         };
 
-        let file = File::create(file_name).unwrap(); 
+        // block for rendering out the user data into a pretty file for the host :)
+        let file = File::create(file_name).unwrap();
         let mut bw = BufWriter::new(file);
         for (ip, user) in messages.iter() {
             let messages = &user.messages;
             let _ = bw.write(format!("{ip}:\n").as_bytes()).unwrap();
             for msg in messages {
-                let date = msg.time_stamp;
+                let date: DateTime<Local> = DateTime::from(msg.time_stamp);
                 let am_pm = match date.hour12().0 {
                     true => "PM",
                     false => "AM",
@@ -97,14 +163,15 @@ fn save_messages(messages: MutexGuard<HashMap<String, User>>) {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 /// A message is a struct that contains the time they sent that individual message, as well as the text of the message itself.
 struct Message {
     text: String,
-    time_stamp: DateTime<Local>,
+    #[serde(with = "ts_seconds")]
+    time_stamp: DateTime<Utc>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// A user struct is a the value portion of a hashmap with a key of an ip address, struct contains a timestamp of the time they last posted, and a vector of all their messages.
 struct User {
     messages: Vec<Message>,
@@ -131,7 +198,7 @@ impl User {
     }
     /// Add a new message to a user, and update their last time of posting
     fn push(&mut self, msg: String) {
-        let time = Local::now();
+        let time = Utc::now();
         let message: Message = Message {
             text: msg,
             time_stamp: time,
@@ -167,9 +234,27 @@ fn view(req: SocketAddr, messages: &State<Messages>) -> String {
         }
         Some(user) => user.messages.clone(),
     };
-    let text_vec: Vec<String> = msg_vec.into_iter().map(|msg| msg.text).collect();
-
-    format!("{:?}", text_vec)
+    // let text_vec: Vec<String> = msg_vec.into_iter().map(|msg| msg.text).collect();
+    let mut output = String::new(); // string builder from java!
+    output.push_str(&format!("IP: {} \n\n", req.ip().to_string()));
+    for msg in msg_vec {
+        let time: DateTime<Local> = DateTime::from(msg.time_stamp);
+        let am_pm = match time.hour12().0 {
+            true => "PM",
+            false => "AM",
+        }; // text for if it is AM or PM
+        let hour_formatted = format!(
+            "{}:{:02}:{:02} {}",
+            time.hour12().1,
+            time.minute(),
+            time.second(),
+            am_pm
+        );
+        let date_formatted = format!("{}-{}-{}", time.year(), time.month(), time.day(),);
+        let message_formatted = format!("{} {}:\t {} \n", date_formatted, hour_formatted, msg.text);
+        output.push_str(&message_formatted);
+    }
+    output.to_string()
 }
 
 #[get("/")]
@@ -194,7 +279,7 @@ fn index() -> RawHtml<&'static str> {
     RawHtml(s)
 }
 
-#[derive(FromForm, Debug)]
+#[derive(FromForm, Debug, Clone)]
 /// Form struct for a message
 struct NewMessage {
     msg: String,
@@ -248,7 +333,7 @@ fn submit_message(
             // new_vec.push(message.msg.to_string()); // eventually push the message they sent, not just underscores
             let msg = Message {
                 text: message.msg.to_string(),
-                time_stamp: Local::now(),
+                time_stamp: Utc::now(),
             };
             lock.insert(user_ip.to_string(), User::new(msg)); // insert the new vector with the key of the users ip address
         }
@@ -295,7 +380,11 @@ fn submit_message_no_data() -> Redirect {
 #[launch]
 fn rocket() -> Rocket<Build> {
     // using this return type isn't shown in the documentation from my minimal looking, but makes intellij happy.
-    let state = Messages::default();
+    let load = load_messages();
+    println!("loaded data: {:?}", load.messages);
+    let state = Messages {
+        messages: Arc::new(Mutex::new(load.messages)),
+    };
     let message_reference = Arc::clone(&state.messages);
 
     // thread that saves the messages to the file system.
