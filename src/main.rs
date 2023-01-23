@@ -14,15 +14,20 @@ use std::thread::sleep;
 use std::time::{Duration, SystemTime};
 use std::{fs, thread};
 
+/// The duration in seconds that a user must wait between each message.
 pub static POST_COOLDOWN: u64 = 5;
+
+/// The maximum length of a message that can be left by a user.
 pub static MESSAGE_LENGTH_CAP: usize = 150;
 
 #[derive(Clone)]
+/// The state struct for the rocket web frame work.
 struct Messages {
-    // hash map consists of the ip address of the user: a vector of the messages they have left
+    // hash map consists of the ip address as a key, and the user struct itself.
     messages: Arc<Mutex<HashMap<String, User>>>,
 }
 
+/// Saves all messages to the system in a file.
 fn save_messages(messages: MutexGuard<HashMap<String, User>>) {
     if !messages.is_empty() {
         match fs::read_dir("./output") {
@@ -91,18 +96,21 @@ fn save_messages(messages: MutexGuard<HashMap<String, User>>) {
 }
 
 #[derive(Clone, Debug)]
+/// A message is a struct that contains the time they sent that individual message, as well as the text of the message itself.
 struct Message {
     text: String,
     time_stamp: DateTime<Local>,
 }
 
 #[derive(Debug)]
+/// A user struct is a the value portion of a hashmap with a key of an ip address, struct contains a timestamp of the time they last posted, and a vector of all their messages.
 struct User {
     messages: Vec<Message>,
     last_time_post: SystemTime,
 }
 
 impl Default for User {
+    /// Default user is a timestamp that is taken immediately and an empty message struct.
     fn default() -> Self {
         User {
             messages: vec![],
@@ -139,6 +147,7 @@ impl User {
 }
 
 impl Default for Messages {
+    /// Default message struct is just an empty hash map.
     fn default() -> Self {
         Messages {
             messages: Arc::new(Mutex::new(HashMap::new())),
@@ -147,6 +156,7 @@ impl Default for Messages {
 }
 
 #[get("/view")]
+/// A page to view all messages sent by this specific user, uses their ip address to look them ip in the hash map.
 fn view(req: SocketAddr, messages: &State<Messages>) -> String {
     let user_ip = &req.ip().to_string();
     let msg_vec = match messages.messages.lock().unwrap().get(user_ip) {
@@ -161,6 +171,7 @@ fn view(req: SocketAddr, messages: &State<Messages>) -> String {
 }
 
 #[get("/")]
+/// Base page that the web page loads to, contains buttons that take you to various other pages.
 fn index() -> RawHtml<&'static str> {
     let s = r#"
     <!DOCTYPE html>
@@ -182,11 +193,13 @@ fn index() -> RawHtml<&'static str> {
 }
 
 #[derive(FromForm, Debug)]
+/// Form struct for a message
 struct NewMessage {
     msg: String,
 }
 
 #[get("/new")]
+/// Page for creating a new message
 fn new() -> RawHtml<&'static str> {
     RawHtml(
         r#"
@@ -211,6 +224,7 @@ fn new() -> RawHtml<&'static str> {
 }
 
 #[post("/submit_message", data = "<message>")]
+/// Route for submitting a message, requires post request data that can fill out the form of a new message, verifies the message for various indicators that it shouldn't be saved.
 fn submit_message(
     message: Form<NewMessage>,
     req: SocketAddr,
@@ -253,21 +267,25 @@ fn submit_message(
 }
 
 #[get("/slow_down")]
+/// Route for requiring the user to slow down their message send rate.
 fn slow_down() -> String {
     "Please slow down, you are trying to post too often :)".to_string()
 }
 
 #[get("/too_long")]
+/// Route for having the message sent be too long
 fn too_long() -> String {
     "That message is too long, please try to make it shorter :)".to_string()
 }
 
 #[get("/error_message")]
+/// Route for having the message contain bad characters
 fn error_message() -> String {
     "That message for some reason was unable to be saved (most likely contains something that is not ascii). ¯\\_(ツ)_/¯".to_string()
 }
 
 #[get("/submit_message")]
+/// Route for redirecting the user from a bad submit message request
 fn submit_message_no_data() -> Redirect {
     Redirect::to(uri!("/new")) // user some how went to submit message, and there was no form data sent to the server, so we redirect them to the submit page.
 }
@@ -278,6 +296,7 @@ fn rocket() -> Rocket<Build> {
     let state = Messages::default();
     let message_reference = Arc::clone(&state.messages);
 
+    // thread that saves the messages to the file system.
     thread::spawn(move || loop {
         {
             let lock = message_reference.lock().unwrap();
