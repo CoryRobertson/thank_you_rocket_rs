@@ -387,6 +387,10 @@ fn rocket() -> Rocket<Build> {
     };
     let message_reference = Arc::clone(&state.messages);
 
+    // TODO: embed a previous wasm project e.g. rhythm_rs as dockerfile build time, also use a pattern match to optionally build without it for debug builds.
+
+    // TODO: instead of building the base index route into the program as text, include an html file at runtime.
+
     // thread that saves the messages to the file system.
     thread::spawn(move || loop {
         {
