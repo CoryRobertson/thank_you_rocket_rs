@@ -235,11 +235,6 @@ fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
         lock.iter()
             .map(|message| message.1.messages.clone())
             .map(|msg| {
-                // let mut s = String::new();
-                // for text in msg {
-                //     s.push_str(&format!("{}, ",&text.text))
-                // }
-                // s.clone()
                 let text_vec: Vec<String> = msg.iter().map(|message| message.text.clone()).collect();
                 format!("{:?}",text_vec)
             })
@@ -247,7 +242,7 @@ fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
     };
     let user_ip = req.ip().to_string();
     let output = format!("{}",message_list);
-
+    // TODO: use maud html macro here instead of this render html macro
     RawHtml(html! {
         <>
        <HTML5Doctype />
@@ -276,57 +271,41 @@ fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
 }
 
 /// A function that outputs a somewhat pretty list of all of this users messages.
-// fn get_message_list(req: &SocketAddr, messages: &State<Messages>) -> String {
-//     let user_ip = &req.ip().to_string();
-//     let msg_vec = match messages.messages.lock().unwrap().get(user_ip) {
-//         None => {
-//             vec![]
-//         }
-//         Some(user) => user.messages.clone(),
-//     };
-//     // let text_vec: Vec<String> = msg_vec.into_iter().map(|msg| msg.text).collect();
-//     let mut output = String::new(); // string builder from java!
-//     output.push_str(&format!("IP: {} \n\n", req.ip().to_string()));
-//     for msg in msg_vec {
-//         let time: DateTime<Local> = DateTime::from(msg.time_stamp);
-//         let am_pm = match time.hour12().0 {
-//             true => "PM",
-//             false => "AM",
-//         }; // text for if it is AM or PM
-//         let hour_formatted = format!(
-//             "{}:{:02}:{:02} {}",
-//             time.hour12().1,
-//             time.minute(),
-//             time.second(),
-//             am_pm
-//         );
-//         let date_formatted = format!("{}-{}-{}", time.year(), time.month(), time.day(),);
-//         let message_formatted = format!("{} {}:\t {} \n", date_formatted, hour_formatted, msg.text);
-//         output.push_str(&message_formatted);
-//     }
-//     output
-// }
+fn get_message_list(req: &SocketAddr, messages: &State<Messages>) -> String {
+    let user_ip = &req.ip().to_string();
+    let msg_vec = match messages.messages.lock().unwrap().get(user_ip) {
+        None => {
+            vec![]
+        }
+        Some(user) => user.messages.clone(),
+    };
+    // let text_vec: Vec<String> = msg_vec.into_iter().map(|msg| msg.text).collect();
+    let mut output = String::new(); // string builder from java!
+    output.push_str(&format!("IP: {} \n\n", req.ip().to_string()));
+    for msg in msg_vec {
+        let time: DateTime<Local> = DateTime::from(msg.time_stamp);
+        let am_pm = match time.hour12().0 {
+            true => "PM",
+            false => "AM",
+        }; // text for if it is AM or PM
+        let hour_formatted = format!(
+            "{}:{:02}:{:02} {}",
+            time.hour12().1,
+            time.minute(),
+            time.second(),
+            am_pm
+        );
+        let date_formatted = format!("{}-{}-{}", time.year(), time.month(), time.day(),);
+        let message_formatted = format!("{} {}:\t {} \n", date_formatted, hour_formatted, msg.text);
+        output.push_str(&message_formatted);
+    }
+    output
+}
 
 #[get("/")]
 /// Base page that the web page loads to, contains buttons that take you to various other pages.
 fn index(_req: SocketAddr,_messages: &State<Messages>) -> RawHtml<String> {
-    // let s = r#"
-    // <!DOCTYPE html>
-    //     <html>
-    //       <head>
-    //         <title>Thank_you_rocker_rs</title>
-    //       </head>
-    //       <body>
-    //         <button onclick="window.location.href='/new';">
-    //           Submit new message
-    //         </button>
-    //         <button onclick="window.location.href='/view';">
-    //           View messages
-    //         </button>
-    //       </body>
-    //     </html>
-    // "#;
-    // RawHtml(s)
+    // TODO: use a maud macro here as well
     RawHtml(html! {
         <>
        <HTML5Doctype />
@@ -356,6 +335,7 @@ struct NewMessage {
 #[get("/new")]
 /// Page for creating a new message
 fn new() -> RawHtml<&'static str> {
+    // TODO: use a maud macro here too!
     RawHtml(
         r#"
     <html lang="en">
@@ -459,6 +439,7 @@ fn rocket() -> Rocket<Build> {
 
     // TODO: instead of building the base index route into the program as text, include an html file at runtime.
 
+    // TODO: also remove nightly toolchain as we wont depend on it anymore
     // thread that saves the messages to the file system.
     thread::spawn(move || loop {
         {
