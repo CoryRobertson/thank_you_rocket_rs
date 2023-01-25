@@ -1,3 +1,4 @@
+#![feature(proc_macro_hygiene)]
 #[macro_use]
 extern crate rocket;
 use chrono::serde::ts_seconds;
@@ -15,6 +16,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::sleep;
 use std::time::{Duration, SystemTime};
 use std::{fs, thread};
+use render::{html};
+use render::html::HTML5Doctype;
 
 /// The duration in seconds that a user must wait between each message. debug only
 #[cfg(debug_assertions)]
@@ -226,57 +229,122 @@ impl Default for Messages {
 
 #[get("/view")]
 /// A page to view all messages sent by this specific user, uses their ip address to look them ip in the hash map.
-fn view(req: SocketAddr, messages: &State<Messages>) -> String {
-    let user_ip = &req.ip().to_string();
-    let msg_vec = match messages.messages.lock().unwrap().get(user_ip) {
-        None => {
-            vec![]
-        }
-        Some(user) => user.messages.clone(),
+fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
+    let message_list: String = {
+        let lock = messages.messages.lock().unwrap();
+        lock.iter()
+            .map(|message| message.1.messages.clone())
+            .map(|msg| {
+                // let mut s = String::new();
+                // for text in msg {
+                //     s.push_str(&format!("{}, ",&text.text))
+                // }
+                // s.clone()
+                let text_vec: Vec<String> = msg.iter().map(|message| message.text.clone()).collect();
+                format!("{:?}",text_vec)
+            })
+            .collect()
     };
-    // let text_vec: Vec<String> = msg_vec.into_iter().map(|msg| msg.text).collect();
-    let mut output = String::new(); // string builder from java!
-    output.push_str(&format!("IP: {} \n\n", req.ip().to_string()));
-    for msg in msg_vec {
-        let time: DateTime<Local> = DateTime::from(msg.time_stamp);
-        let am_pm = match time.hour12().0 {
-            true => "PM",
-            false => "AM",
-        }; // text for if it is AM or PM
-        let hour_formatted = format!(
-            "{}:{:02}:{:02} {}",
-            time.hour12().1,
-            time.minute(),
-            time.second(),
-            am_pm
-        );
-        let date_formatted = format!("{}-{}-{}", time.year(), time.month(), time.day(),);
-        let message_formatted = format!("{} {}:\t {} \n", date_formatted, hour_formatted, msg.text);
-        output.push_str(&message_formatted);
-    }
-    output.to_string()
+    let user_ip = req.ip().to_string();
+    let output = format!("{}",message_list);
+
+    RawHtml(html! {
+        <>
+       <HTML5Doctype />
+       <html>
+         <head><title>{"view"}</title></head>
+            <body>
+
+                <br>
+                <button onclick={"window.location.href='/';"}>
+                      {"Go back"}
+                </button>
+                </br>
+
+                <br>
+                    {"IP: "}{user_ip}
+                </br>
+
+                <br>
+                {output}
+                </br>
+
+            </body>
+       </html>
+     </>
+    })
 }
+
+/// A function that outputs a somewhat pretty list of all of this users messages.
+// fn get_message_list(req: &SocketAddr, messages: &State<Messages>) -> String {
+//     let user_ip = &req.ip().to_string();
+//     let msg_vec = match messages.messages.lock().unwrap().get(user_ip) {
+//         None => {
+//             vec![]
+//         }
+//         Some(user) => user.messages.clone(),
+//     };
+//     // let text_vec: Vec<String> = msg_vec.into_iter().map(|msg| msg.text).collect();
+//     let mut output = String::new(); // string builder from java!
+//     output.push_str(&format!("IP: {} \n\n", req.ip().to_string()));
+//     for msg in msg_vec {
+//         let time: DateTime<Local> = DateTime::from(msg.time_stamp);
+//         let am_pm = match time.hour12().0 {
+//             true => "PM",
+//             false => "AM",
+//         }; // text for if it is AM or PM
+//         let hour_formatted = format!(
+//             "{}:{:02}:{:02} {}",
+//             time.hour12().1,
+//             time.minute(),
+//             time.second(),
+//             am_pm
+//         );
+//         let date_formatted = format!("{}-{}-{}", time.year(), time.month(), time.day(),);
+//         let message_formatted = format!("{} {}:\t {} \n", date_formatted, hour_formatted, msg.text);
+//         output.push_str(&message_formatted);
+//     }
+//     output
+// }
 
 #[get("/")]
 /// Base page that the web page loads to, contains buttons that take you to various other pages.
-fn index() -> RawHtml<&'static str> {
-    let s = r#"
-    <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Thank_you_rocker_rs</title>
-          </head>
-          <body>
-            <button onclick="window.location.href='/new';">
-              Submit new message
+fn index(_req: SocketAddr,_messages: &State<Messages>) -> RawHtml<String> {
+    // let s = r#"
+    // <!DOCTYPE html>
+    //     <html>
+    //       <head>
+    //         <title>Thank_you_rocker_rs</title>
+    //       </head>
+    //       <body>
+    //         <button onclick="window.location.href='/new';">
+    //           Submit new message
+    //         </button>
+    //         <button onclick="window.location.href='/view';">
+    //           View messages
+    //         </button>
+    //       </body>
+    //     </html>
+    // "#;
+    // RawHtml(s)
+    RawHtml(html! {
+        <>
+       <HTML5Doctype />
+       <html>
+         <head><title>{"home"}</title></head>
+         <body>
+           <button onclick={"window.location.href='/new';"}>
+                  {"Submit new message"}
             </button>
-            <button onclick="window.location.href='/view';">
-              View messages
+            <button onclick={"window.location.href='/view';"}>
+                  {"View messages"}
             </button>
-          </body>
-        </html>
-    "#;
-    RawHtml(s)
+            // <div></div>
+            // {get_message_list(&req,messages)}
+         </body>
+       </html>
+     </>
+    })
 }
 
 #[derive(FromForm, Debug, Clone)]
