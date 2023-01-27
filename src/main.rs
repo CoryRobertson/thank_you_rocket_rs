@@ -1,8 +1,11 @@
-#![feature(proc_macro_hygiene)]
+// #![feature(proc_macro_hygiene)]
+#![feature(decl_macro)]
 #[macro_use]
 extern crate rocket;
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, Datelike, Local, Timelike, Utc};
+// use render::html;
+// use render::html::HTML5Doctype;
 use rocket::form::Form;
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
@@ -16,8 +19,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::sleep;
 use std::time::{Duration, SystemTime};
 use std::{fs, thread};
-use render::{html};
-use render::html::HTML5Doctype;
+use maud::{DOCTYPE, html, PreEscaped};
 
 /// The duration in seconds that a user must wait between each message. debug only
 #[cfg(debug_assertions)]
@@ -29,6 +31,9 @@ pub static POST_COOLDOWN: u64 = 60;
 
 /// The maximum length of a message that can be left by a user.
 pub static MESSAGE_LENGTH_CAP: usize = 150;
+
+/// The minimum length of a message that can be left by a user.
+pub static MESSAGE_LENGTH_MIN: usize = 3;
 
 pub static SERDE_FILE_NAME: &str = "messages.ser";
 pub static RENDER_FILE_NAME: &str = "messages.sav";
@@ -216,6 +221,13 @@ impl User {
             Err(_) => false,
         }
     }
+
+    /// Returns true if the user has already sent this message before, only checks text
+    /// Returns false if the user has not sent this message
+    fn is_dupe_message(&self, msg: &Form<NewMessage>) -> bool {
+        let messages: Vec<&String> = self.messages.iter().map(|msg| &msg.text).collect();
+        messages.contains(&&msg.msg)
+    }
 }
 
 impl Default for Messages {
@@ -235,43 +247,37 @@ fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
         lock.iter()
             .map(|message| message.1.messages.clone())
             .map(|msg| {
-                let text_vec: Vec<String> = msg.iter().map(|message| message.text.clone()).collect();
-                format!("{:?}",text_vec)
+                let text_vec: Vec<String> =
+                    msg.iter().map(|message| message.text.clone()).collect();
+                // make a vector full of all of the messages this specific user has sent
+                let mut string_list = String::new();
+                for text in text_vec {
+                    let escaped = html_escape::encode_safe(&text);
+                    // append each message they sent, after escaping it
+                    string_list.push_str(&format!("{}<br>", escaped));
+                    // this text is escaped, but we put a line break after so it has one line per message
+                }
+                string_list // return this string, which gets collected as a single string
             })
             .collect()
-    };
+    }; // message list is a string that is pre escaped, has line breaks between each message sent.
     let user_ip = req.ip().to_string();
-    let output = format!("{}",message_list);
-    // TODO: use maud html macro here instead of this render html macro
+    let output = format!("{}", message_list);
+    let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
     RawHtml(html! {
-        <>
-       <HTML5Doctype />
-       <html>
-         <head><title>{"view"}</title></head>
-            <body>
-
-                <br>
-                <button onclick={"window.location.href='/';"}>
-                      {"Go back"}
-                </button>
-                </br>
-
-                <br>
-                    {"IP: "}{user_ip}
-                </br>
-
-                <br>
-                {output}
-                </br>
-
-            </body>
-       </html>
-     </>
-    })
+       h1 {"Messages sent:"}
+        (format!("IP: {}", user_ip))
+        br;
+        br;
+        (PreEscaped(output))
+        br;
+        (PreEscaped(back_button))
+        br;
+    }.into_string())
 }
 
 /// A function that outputs a somewhat pretty list of all of this users messages.
-fn get_message_list(req: &SocketAddr, messages: &State<Messages>) -> String {
+fn _get_message_list(req: &SocketAddr, messages: &State<Messages>) -> String {
     let user_ip = &req.ip().to_string();
     let msg_vec = match messages.messages.lock().unwrap().get(user_ip) {
         None => {
@@ -304,26 +310,17 @@ fn get_message_list(req: &SocketAddr, messages: &State<Messages>) -> String {
 
 #[get("/")]
 /// Base page that the web page loads to, contains buttons that take you to various other pages.
-fn index(_req: SocketAddr,_messages: &State<Messages>) -> RawHtml<String> {
+fn index(_req: SocketAddr, _messages: &State<Messages>) -> RawHtml<String> {
     // TODO: use a maud macro here as well
     RawHtml(html! {
-        <>
-       <HTML5Doctype />
-       <html>
-         <head><title>{"home"}</title></head>
-         <body>
-           <button onclick={"window.location.href='/new';"}>
-                  {"Submit new message"}
-            </button>
-            <button onclick={"window.location.href='/view';"}>
-                  {"View messages"}
-            </button>
-            // <div></div>
-            // {get_message_list(&req,messages)}
-         </body>
-       </html>
-     </>
-    })
+        (DOCTYPE)
+        title {"Thank you rocket!"}
+        h1 {"Thank you rocket!"}
+        p {"Welcome to thank you rocket!"}
+        (PreEscaped("<button onclick=\"window.location.href=\'/new\';\">Write a message</button>"))
+        br;
+        (PreEscaped("<button onclick=\"window.location.href=\'/view\';\">View written messages</button>"))
+    }.into_string())
 }
 
 #[derive(FromForm, Debug, Clone)]
@@ -373,6 +370,10 @@ fn submit_message(
         return Redirect::to(uri!("/too_long")); // early return and tell the user to write shorter messages
     }
 
+    if message.msg.len() < MESSAGE_LENGTH_MIN {
+        return Redirect::to(uri!("/too_short"));
+    }
+
     let mut lock = messages.messages.lock().unwrap();
     let user_ip = &req.ip().to_string();
     match lock.get_mut(user_ip) {
@@ -388,9 +389,13 @@ fn submit_message(
         Some(user) => {
             // let time_since_last_post = SystemTime::now().duration_since(user.last_time_post).unwrap().as_secs();
             if user.can_post() {
+
+                if user.is_dupe_message(&message) {
+                    return Redirect::to(uri!("/duplicate"));
+                } // check if the user is about to post a duplicate message
+
                 // if the last time the user posted was 5 or more seconds ago
                 user.push(message.msg.to_string()); // push their new message, this also updates their last time of posting
-                                                    // user.last_time_post = SystemTime::now(); // update their last post time
             } else {
                 user.last_time_post = SystemTime::now();
                 return Redirect::to(uri!("/slow_down")); // early return and tell the user to slow down
@@ -411,6 +416,18 @@ fn slow_down() -> String {
 /// Route for having the message sent be too long
 fn too_long() -> String {
     "That message is too long, please try to make it shorter :)".to_string()
+}
+
+#[get("/too_short")]
+/// Route for having the message sent be too long
+fn too_short() -> String {
+    "That message is too short. :)".to_string()
+}
+
+#[get("/duplicate")]
+/// Route for having the message sent be too long
+fn duplicate() -> String {
+    "That message is a duplicate message.".to_string()
 }
 
 #[get("/error_message")]
@@ -459,7 +476,9 @@ fn rocket() -> Rocket<Build> {
             view,
             slow_down,
             too_long,
-            error_message
+            too_short,
+            duplicate,
+            error_message,
         ],
     )
 }
