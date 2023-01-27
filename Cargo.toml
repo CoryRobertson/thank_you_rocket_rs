@@ -6,9 +6,9 @@ edition = "2021"
 
 [dependencies]
 rocket = "0.5.0-rc.2"
-serde = { version = "1.0.148", features = ["derive"] }
+serde = { version = "1.0.149", features = ["derive"] }
 chrono = { version = "0.4.23", features = ["serde"] }
 chrono-tz = { version = "0.8.1", features = ["serde"] }
-serde_json = "1.0.87"
+serde_json = "1.0.88"
 html-escape = "0.2.13"
-maud = { version = "0.24.0", features = ["rocket"] } # TODO: this feature for maud doesnt seem to be needed to run the program properly, and gives a warning.
+maud = { version = "0.24.0" }
