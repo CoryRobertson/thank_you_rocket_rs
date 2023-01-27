@@ -4,8 +4,7 @@
 extern crate rocket;
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, Datelike, Local, Timelike, Utc};
-// use render::html;
-// use render::html::HTML5Doctype;
+use maud::{html, PreEscaped, DOCTYPE};
 use rocket::form::Form;
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
@@ -13,13 +12,12 @@ use rocket::{Build, Rocket, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufWriter, Read, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::sleep;
 use std::time::{Duration, SystemTime};
 use std::{fs, thread};
-use maud::{DOCTYPE, html, PreEscaped};
 
 /// The duration in seconds that a user must wait between each message. debug only
 #[cfg(debug_assertions)]
@@ -122,19 +120,7 @@ fn save_messages(messages: MutexGuard<HashMap<String, User>>) {
             ser_file.write_all(ser.as_ref()).unwrap();
         }
 
-        let file_name = {
-            // maybe use this later, at the moment not sure about it.
-            // let date_for_file_name = {
-            //     let ts = Local::now();
-            //     format!(
-            //         "{}-{}-{}",
-            //         ts.year(),
-            //         ts.month(),
-            //         ts.day(),
-            //     )
-            // }; // get a new date and time stamp for the file to save to
-            format!("./output/{}", RENDER_FILE_NAME)
-        };
+        let file_name = { format!("./output/{}", RENDER_FILE_NAME) };
 
         // block for rendering out the user data into a pretty file for the host :)
         let file = File::create(file_name).unwrap();
@@ -242,38 +228,48 @@ impl Default for Messages {
 #[get("/view")]
 /// A page to view all messages sent by this specific user, uses their ip address to look them ip in the hash map.
 fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
+    if is_banned(&req.ip().to_string()) {
+        return RawHtml(error_message());
+    }
+
+    let user_ip = &req.ip().to_string();
+    let msg_vec = match messages.messages.lock().unwrap().get(user_ip) {
+        None => {
+            vec![]
+        }
+        Some(user) => user.messages.clone(),
+    };
+
     let message_list: String = {
-        let lock = messages.messages.lock().unwrap();
-        lock.iter()
-            .map(|message| message.1.messages.clone())
-            .map(|msg| {
-                let text_vec: Vec<String> =
-                    msg.iter().map(|message| message.text.clone()).collect();
-                // make a vector full of all of the messages this specific user has sent
-                let mut string_list = String::new();
-                for text in text_vec {
-                    let escaped = html_escape::encode_safe(&text);
-                    // append each message they sent, after escaping it
-                    string_list.push_str(&format!("{}<br>", escaped));
-                    // this text is escaped, but we put a line break after so it has one line per message
-                }
-                string_list // return this string, which gets collected as a single string
-            })
-            .collect()
+        let mut string_list = String::new();
+
+        msg_vec.iter().map(|message| &message.text).for_each(|msg| {
+            // make a vector full of all of the messages this specific user has sent
+            let escaped = html_escape::encode_safe(&msg);
+            // append each message they sent, after escaping it
+            string_list.push_str(&format!("{}<br>", escaped));
+            // this text is escaped, but we put a line break after so it has one line per message
+
+            // string_list // return this string, which gets collected as a single string
+        });
+        string_list
     }; // message list is a string that is pre escaped, has line breaks between each message sent.
     let user_ip = req.ip().to_string();
     let output = format!("{}", message_list);
     let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
-    RawHtml(html! {
-       h1 {"Messages sent:"}
-        (format!("IP: {}", user_ip))
-        br;
-        br;
-        (PreEscaped(output))
-        br;
-        (PreEscaped(back_button))
-        br;
-    }.into_string())
+    RawHtml(
+        html! {
+           h1 {"Messages sent:"}
+            (format!("IP: {}", user_ip))
+            br;
+            br;
+            (PreEscaped(output))
+            br;
+            (PreEscaped(back_button))
+            br;
+        }
+        .into_string(),
+    )
 }
 
 /// A function that outputs a somewhat pretty list of all of this users messages.
@@ -310,8 +306,10 @@ fn _get_message_list(req: &SocketAddr, messages: &State<Messages>) -> String {
 
 #[get("/")]
 /// Base page that the web page loads to, contains buttons that take you to various other pages.
-fn index(_req: SocketAddr, _messages: &State<Messages>) -> RawHtml<String> {
-    // TODO: use a maud macro here as well
+fn index(req: SocketAddr, _messages: &State<Messages>) -> RawHtml<String> {
+    if is_banned(&req.ip().to_string()) {
+        return RawHtml(error_message());
+    }
     RawHtml(html! {
         (DOCTYPE)
         title {"Thank you rocket!"}
@@ -331,8 +329,10 @@ struct NewMessage {
 
 #[get("/new")]
 /// Page for creating a new message
-fn new() -> RawHtml<&'static str> {
-    // TODO: use a maud macro here too!
+fn new(req: SocketAddr) -> RawHtml<String> {
+    if is_banned(&req.ip().to_string()) {
+        return RawHtml(error_message());
+    }
     RawHtml(
         r#"
     <html lang="en">
@@ -351,7 +351,9 @@ fn new() -> RawHtml<&'static str> {
             </form>
         </body>
     </html>
-    "#,
+    "#
+        .parse()
+        .unwrap(),
     )
 }
 
@@ -362,6 +364,10 @@ fn submit_message(
     req: SocketAddr,
     messages: &State<Messages>,
 ) -> Redirect {
+    if is_banned(&req.ip().to_string()) {
+        return Redirect::to(uri!("/error_message")); // early return to check if the user is banned
+    }
+
     if !message.msg.is_ascii() {
         return Redirect::to(uri!("/error_message")); // only allow user to use ascii text in their message
     }
@@ -371,7 +377,7 @@ fn submit_message(
     }
 
     if message.msg.len() < MESSAGE_LENGTH_MIN {
-        return Redirect::to(uri!("/too_short"));
+        return Redirect::to(uri!("/too_short")); // early return to tell the user their message is too short
     }
 
     let mut lock = messages.messages.lock().unwrap();
@@ -389,7 +395,6 @@ fn submit_message(
         Some(user) => {
             // let time_since_last_post = SystemTime::now().duration_since(user.last_time_post).unwrap().as_secs();
             if user.can_post() {
-
                 if user.is_dupe_message(&message) {
                     return Redirect::to(uri!("/duplicate"));
                 } // check if the user is about to post a duplicate message
@@ -433,13 +438,55 @@ fn duplicate() -> String {
 #[get("/error_message")]
 /// Route for having the message contain bad characters
 fn error_message() -> String {
-    "That message for some reason was unable to be saved (most likely contains something that is not ascii). ¯\\_(ツ)_/¯".to_string()
+    "An unexpected error occurred. ¯\\_(ツ)_/¯".to_string()
 }
 
 #[get("/submit_message")]
 /// Route for redirecting the user from a bad submit message request
-fn submit_message_no_data() -> Redirect {
+fn submit_message_no_data(req: SocketAddr) -> Redirect {
+    if is_banned(&req.ip().to_string()) {
+        return Redirect::to(uri!("/error_message")); // early return to check if the user is banned
+    }
+
     Redirect::to(uri!("/new")) // user some how went to submit message, and there was no form data sent to the server, so we redirect them to the submit page.
+}
+
+fn is_banned(ip: &String) -> bool {
+    let banned_ips_file = match File::open("banned_ips.txt") {
+        Ok(f) => f,
+        Err(_) => {
+            match File::create("banned_ips.txt") {
+                Ok(_) => {
+                    println!("No \"banned_ips.txt\" file, creating it now.");
+                }
+                Err(err) => {
+                    println!(
+                        "Unable to create \"banned_ips.txt\" text file, missing permissions? \n{}",
+                        err
+                    );
+                }
+            }
+            return false;
+        }
+    }; // try to get a file handle of the banned ips txt file, if the file does not exist, the given ip is clearly not banned, so we create the banned_ips.txt file and return false
+    let br = BufReader::new(banned_ips_file); //  create the buffered reader of the banned ips file, so it can be any size.
+    let lines = br.lines(); // get an iterator of all the lines in the file, buffered reader is used to get this.
+    for line in lines {
+        match line {
+            // match each line, as each line is possible to be an invalid string
+            Ok(l) => {
+                println!("ip: {}, line: {}", ip, l);
+                if ip.eq(&l) {
+                    // if the given ip matches the line, then return true
+                    return true;
+                }
+            }
+            Err(err) => {
+                println!("error reading line from banned ips file: {}", err);
+            }
+        }
+    }
+    return false; // return false if we were unable to find the ip of the user
 }
 
 #[launch]
@@ -454,9 +501,6 @@ fn rocket() -> Rocket<Build> {
 
     // TODO: embed a previous wasm project e.g. rhythm_rs as dockerfile build time, also use a pattern match to optionally build without it for debug builds.
 
-    // TODO: instead of building the base index route into the program as text, include an html file at runtime.
-
-    // TODO: also remove nightly toolchain as we wont depend on it anymore
     // thread that saves the messages to the file system.
     thread::spawn(move || loop {
         {

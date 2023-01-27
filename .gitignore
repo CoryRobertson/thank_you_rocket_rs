@@ -122,3 +122,4 @@ $RECYCLE.BIN/
 *.lnk
 
 /output/
+/banned_ips.txt
