@@ -40,6 +40,7 @@ pub static RENDER_FILE_NAME: &str = "messages.sav";
 struct Messages {
     // hash map consists of the ip address as a key, and the user struct itself.
     messages: Arc<Mutex<HashMap<String, User>>>,
+    banned_ips: Vec<String>, // vector full of all of the banned ips read from file at startup
 }
 
 #[derive(Serialize, Deserialize)]
@@ -220,6 +221,7 @@ impl Default for Messages {
     fn default() -> Self {
         Messages {
             messages: Arc::new(Mutex::new(HashMap::new())),
+            banned_ips: vec![],
         }
     }
 }
@@ -227,7 +229,7 @@ impl Default for Messages {
 #[get("/view")]
 /// A page to view all messages sent by this specific user, uses their ip address to look them ip in the hash map.
 fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
-    if is_banned(&req.ip().to_string()) {
+    if is_banned(&req.ip().to_string(), messages) {
         return RawHtml(error_message());
     }
 
@@ -278,8 +280,8 @@ fn get_message_list_from_ip(req: &SocketAddr, messages: &State<Messages>) -> Vec
 
 #[get("/")]
 /// Base page that the web page loads to, contains buttons that take you to various other pages.
-fn index(req: SocketAddr, _messages: &State<Messages>) -> RawHtml<String> {
-    if is_banned(&req.ip().to_string()) {
+fn index(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
+    if is_banned(&req.ip().to_string(), messages) {
         return RawHtml(error_message());
     }
     RawHtml(html! {
@@ -301,8 +303,8 @@ struct NewMessage {
 
 #[get("/new")]
 /// Page for creating a new message
-fn new(req: SocketAddr) -> RawHtml<String> {
-    if is_banned(&req.ip().to_string()) {
+fn new(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
+    if is_banned(&req.ip().to_string(), messages) {
         return RawHtml(error_message());
     }
     RawHtml(
@@ -336,7 +338,7 @@ fn submit_message(
     req: SocketAddr,
     messages: &State<Messages>,
 ) -> Redirect {
-    if is_banned(&req.ip().to_string()) {
+    if is_banned(&req.ip().to_string(), messages) {
         return Redirect::to(uri!("/error_message")); // early return to check if the user is banned
     }
 
@@ -417,60 +419,60 @@ fn error_message() -> String {
 
 #[get("/submit_message")]
 /// Route for redirecting the user from a bad submit message request
-fn submit_message_no_data(req: SocketAddr) -> Redirect {
-    if is_banned(&req.ip().to_string()) {
+fn submit_message_no_data(req: SocketAddr, messages: &State<Messages>) -> Redirect {
+    if is_banned(&req.ip().to_string(), messages) {
         return Redirect::to(uri!("/error_message")); // early return to check if the user is banned
     }
 
     Redirect::to(uri!("/new")) // user some how went to submit message, and there was no form data sent to the server, so we redirect them to the submit page.
 }
 
-fn is_banned(ip: &String) -> bool {
-    let banned_ips_file = match File::open("banned_ips.txt") {
-        Ok(f) => f,
-        Err(_) => {
-            match File::create("banned_ips.txt") {
-                Ok(_) => {
-                    println!("No \"banned_ips.txt\" file, creating it now.");
-                }
-                Err(err) => {
-                    println!(
-                        "Unable to create \"banned_ips.txt\" text file, missing permissions? \n{}",
-                        err
-                    );
-                }
-            }
-            return false;
-        }
-    }; // try to get a file handle of the banned ips txt file, if the file does not exist, the given ip is clearly not banned, so we create the banned_ips.txt file and return false
-    let br = BufReader::new(banned_ips_file); //  create the buffered reader of the banned ips file, so it can be any size.
-    let lines = br.lines(); // get an iterator of all the lines in the file, buffered reader is used to get this.
-    for line in lines {
-        match line {
-            // match each line, as each line is possible to be an invalid string
-            Ok(l) => {
-                println!("ip: {}, line: {}", ip, l);
-                if ip.eq(&l) {
-                    // if the given ip matches the line, then return true
-                    return true;
-                }
-            }
-            Err(err) => {
-                println!("error reading line from banned ips file: {}", err);
-            }
-        }
-    }
-    false // return false if we were unable to find the ip of the user
+fn is_banned(ip: &String, messages: &State<Messages>) -> bool {
+    messages.banned_ips.contains(ip)
 }
 
 #[launch]
 fn rocket() -> Rocket<Build> {
     // using this return type isn't shown in the documentation from my minimal looking, but makes intellij happy.
+
     let load = load_messages();
-    println!("loaded data: {:?}", load.messages);
+    println!("Loaded message data: {:?}", load.messages);
     let state = Messages {
         messages: Arc::new(Mutex::new(load.messages)),
+        banned_ips: {
+            if let Ok(file) = File::open("./banned_ips.txt") {
+                let br = BufReader::new(file);
+                let lines: Vec<String> = br
+                    .lines() // parse the lines out in a super fun way, probably unnecessary as a banned_ips file is unlikely to be full of errors, but this was super fun to make.
+                    .filter_map(|line| {
+                        // filter out only valid lines
+                        match line {
+                            Ok(l) => Some(l),
+                            Err(_) => None,
+                        }
+                    })
+                    .filter(|line| {
+                        // check that there are 4 valid u8 numbers in the ip address
+                        // 1.2.3.4 1111.2222.3333.4444
+                        // possible inputs, only the left one should be considered possibly valid.
+                        let num_len_valid: Vec<&str> = line
+                            .split('.') // split the line given by its periods
+                            .filter(|num_split| {
+                                // only keep lines that are possible to be parsed into a 8u
+                                num_split.parse::<u8>().is_ok()
+                            })
+                            .collect();
+                        num_len_valid.len() == 4 // there needs to be exactly 4 valid u8 numbers to allow this given line to be kept.
+                    })
+                    .collect();
+                lines
+            } else {
+                vec![]
+            }
+        },
     };
+
+    println!("Loaded banned ips: {:?}", state.banned_ips);
 
     // TODO: embed a previous wasm project e.g. rhythm_rs as dockerfile build time, also use a pattern match to optionally build without it for debug builds.
 
