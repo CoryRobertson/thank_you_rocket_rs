@@ -11,13 +11,12 @@ use rocket::response::Redirect;
 use rocket::{Build, Rocket, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::thread::sleep;
-use std::time::{Duration, SystemTime};
-use std::{fs, thread};
+use std::time::SystemTime;
 
 /// The duration in seconds that a user must wait between each message. debug only
 #[cfg(debug_assertions)]
@@ -232,18 +231,12 @@ fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
         return RawHtml(error_message());
     }
 
-    let user_ip = &req.ip().to_string();
-    let msg_vec = match messages.messages.lock().unwrap().get(user_ip) {
-        None => {
-            vec![]
-        }
-        Some(user) => user.messages.clone(),
-    };
+    let msg_vec = get_message_list_from_ip(&req, messages);
 
     let message_list: String = {
         let mut string_list = String::new();
 
-        msg_vec.iter().map(|message| &message.text).for_each(|msg| {
+        msg_vec.into_iter().for_each(|msg| {
             // make a vector full of all of the messages this specific user has sent
             let escaped = html_escape::encode_safe(&msg);
             // append each message they sent, after escaping it
@@ -255,7 +248,6 @@ fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
         string_list
     }; // message list is a string that is pre escaped, has line breaks between each message sent.
     let user_ip = req.ip().to_string();
-    let output = format!("{}", message_list);
     let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
     RawHtml(
         html! {
@@ -263,7 +255,7 @@ fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
             (format!("IP: {}", user_ip))
             br;
             br;
-            (PreEscaped(output))
+            (PreEscaped(message_list))
             br;
             (PreEscaped(back_button))
             br;
@@ -272,8 +264,8 @@ fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
     )
 }
 
-/// A function that outputs a somewhat pretty list of all of this users messages.
-fn _get_message_list(req: &SocketAddr, messages: &State<Messages>) -> String {
+/// A function that outputs a vector of all the messages sent by a given ip address
+fn get_message_list_from_ip(req: &SocketAddr, messages: &State<Messages>) -> Vec<String> {
     let user_ip = &req.ip().to_string();
     let msg_vec = match messages.messages.lock().unwrap().get(user_ip) {
         None => {
@@ -281,27 +273,7 @@ fn _get_message_list(req: &SocketAddr, messages: &State<Messages>) -> String {
         }
         Some(user) => user.messages.clone(),
     };
-    // let text_vec: Vec<String> = msg_vec.into_iter().map(|msg| msg.text).collect();
-    let mut output = String::new(); // string builder from java!
-    output.push_str(&format!("IP: {} \n\n", req.ip().to_string()));
-    for msg in msg_vec {
-        let time: DateTime<Local> = DateTime::from(msg.time_stamp);
-        let am_pm = match time.hour12().0 {
-            true => "PM",
-            false => "AM",
-        }; // text for if it is AM or PM
-        let hour_formatted = format!(
-            "{}:{:02}:{:02} {}",
-            time.hour12().1,
-            time.minute(),
-            time.second(),
-            am_pm
-        );
-        let date_formatted = format!("{}-{}-{}", time.year(), time.month(), time.day(),);
-        let message_formatted = format!("{} {}:\t {} \n", date_formatted, hour_formatted, msg.text);
-        output.push_str(&message_formatted);
-    }
-    output
+    msg_vec.into_iter().map(|msg| msg.text).collect()
 }
 
 #[get("/")]
@@ -408,6 +380,8 @@ fn submit_message(
         }
     };
 
+    save_messages(lock);
+
     Redirect::to(uri!("/"))
 }
 
@@ -486,7 +460,7 @@ fn is_banned(ip: &String) -> bool {
             }
         }
     }
-    return false; // return false if we were unable to find the ip of the user
+    false // return false if we were unable to find the ip of the user
 }
 
 #[launch]
@@ -497,18 +471,8 @@ fn rocket() -> Rocket<Build> {
     let state = Messages {
         messages: Arc::new(Mutex::new(load.messages)),
     };
-    let message_reference = Arc::clone(&state.messages);
 
     // TODO: embed a previous wasm project e.g. rhythm_rs as dockerfile build time, also use a pattern match to optionally build without it for debug builds.
-
-    // thread that saves the messages to the file system.
-    thread::spawn(move || loop {
-        {
-            let lock = message_reference.lock().unwrap();
-            save_messages(lock);
-        }
-        sleep(Duration::from_secs(5));
-    }); // file save loop
 
     rocket::build().manage(state).mount(
         "/",
