@@ -474,7 +474,12 @@ fn rocket() -> Rocket<Build> {
 
     println!("Loaded banned ips: {:?}", state.banned_ips);
 
-    // TODO: embed a previous wasm project e.g. rhythm_rs as dockerfile build time, also use a pattern match to optionally build without it for debug builds.
+    // TODO: embed a previous wasm project e.g. rhythm_rs as dockerfile build time, also use a pattern match to optionally build without it for debug builds. (use rocket::FileServer for this)
+    //  use a build.rs buildscript to auto download rhythm_rs and build:
+    //  check if directory exists for rhythm_rs
+    //  if exists, go to next step, else, git clone it.
+    //  trunk build --release in its directory (possibly use a shell script for this if the build script tool in cargo doesnt like multi command chains e.g. a change directory followed by a command.),
+    //  then move its contents into where ever the program expects it to be, like /static or something.
 
     rocket::build().manage(state).mount(
         "/",
