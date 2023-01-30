@@ -17,6 +17,7 @@ use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::SystemTime;
+use rocket::fs::{FileServer, relative};
 
 /// The duration in seconds that a user must wait between each message. debug only
 #[cfg(debug_assertions)]
@@ -284,6 +285,9 @@ fn index(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
     if is_banned(&req.ip().to_string(), messages) {
         return RawHtml(error_message());
     }
+
+    // TODO: make these links for buttons open in a new tab, not in current tab.
+
     RawHtml(html! {
         (DOCTYPE)
         title {"Thank you rocket!"}
@@ -496,4 +500,5 @@ fn rocket() -> Rocket<Build> {
             error_message,
         ],
     )
+        .mount("/public", FileServer::from(relative!("static")))
 }
