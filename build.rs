@@ -3,6 +3,12 @@ use std::process::Command;
 
 fn main() {
 
+    // let a = cfg!(feature = "rhythm");
+    // panic!("a: {}", a);
+    // cargo build --features="rhythm" OR cargo build
+
+    // TODO: use features to determine if to build with this script or to simply build just the web server.
+
     // println!("cargo:rerun-if-changed=rhythm_rs");
     //
     // let static_dir = match fs::read_dir("./static") {

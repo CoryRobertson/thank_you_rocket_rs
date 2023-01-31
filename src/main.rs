@@ -2,6 +2,7 @@
 #![feature(decl_macro)]
 #[macro_use]
 extern crate rocket;
+
 use crate::message::{get_message_list_from_ip, Message, Messages, NewMessage};
 use crate::metrics::Metrics;
 use crate::state_management::{load_messages, save_messages};
@@ -13,6 +14,7 @@ use rocket::fs::{relative, FileServer};
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
 use rocket::{Build, Rocket, State};
+use std::fs;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::net::SocketAddr;
@@ -252,6 +254,17 @@ fn rocket() -> Rocket<Build> {
     let metrics_fairing: Metrics = Metrics {
         banned_ips: state.banned_ips.clone(),
     };
+
+    // if static dir does not exist, make it, panic the program if we cant create it first
+    match fs::read_dir("./static") {
+        Ok(_) => {}
+        Err(_) => match fs::create_dir("./static") {
+            Ok(_) => {}
+            Err(err) => {
+                panic!("Error, unable to create static directory, check parent folder permissions. \n{}",err);
+            }
+        },
+    }
 
     println!("Loaded banned ips: {:?}", state.banned_ips);
 
