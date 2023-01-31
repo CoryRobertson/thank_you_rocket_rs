@@ -2,22 +2,27 @@
 #![feature(decl_macro)]
 #[macro_use]
 extern crate rocket;
-use chrono::serde::ts_seconds;
-use chrono::{DateTime, Datelike, Local, Timelike, Utc};
+use crate::message::{get_message_list_from_ip, Message, Messages, NewMessage};
+use crate::metrics::Metrics;
+use crate::state_management::{load_messages, save_messages};
+use crate::user::User;
+use chrono::Utc;
 use maud::{html, PreEscaped, DOCTYPE};
 use rocket::form::Form;
+use rocket::fs::{relative, FileServer};
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
 use rocket::{Build, Rocket, State};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fs;
 use std::fs::File;
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::io::{BufRead, BufReader};
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
-use rocket::fs::{FileServer, relative};
+
+mod message;
+mod metrics;
+mod state_management;
+mod user;
 
 /// The duration in seconds that a user must wait between each message. debug only
 #[cfg(debug_assertions)]
@@ -36,204 +41,9 @@ pub static MESSAGE_LENGTH_MIN: usize = 3;
 pub static SERDE_FILE_NAME: &str = "messages.ser";
 pub static RENDER_FILE_NAME: &str = "messages.sav";
 
-#[derive(Clone)]
-/// The state struct for the rocket web frame work.
-struct Messages {
-    // hash map consists of the ip address as a key, and the user struct itself.
-    messages: Arc<Mutex<HashMap<String, User>>>,
-    banned_ips: Vec<String>, // vector full of all of the banned ips read from file at startup
-}
-
-#[derive(Serialize, Deserialize)]
-/// A serializable version of the Messages struct, used only for saving.
-struct StateSave {
-    messages: HashMap<String, User>,
-}
-
-fn load_messages() -> StateSave {
-    let file_name = format!("./output/{}", SERDE_FILE_NAME);
-    let mut file = match File::open(file_name) {
-        Ok(f) => f,
-        Err(err) => {
-            println!("Didnt find serde file name. {}", err);
-            return StateSave {
-                messages: HashMap::new(),
-            };
-        }
-    };
-
-    let mut s = String::new();
-    match file.read_to_string(&mut s) {
-        Ok(_) => {}
-        Err(err) => {
-            println!("Unable to read to string from save file. {}", err);
-            return StateSave {
-                messages: HashMap::new(),
-            };
-        }
-    }
-
-    match serde_json::from_str::<StateSave>(&s) {
-        Ok(state) => state,
-        Err(err) => {
-            println!("ERROR UNABLE TO READ STATE SAVE FROM \"messages.ser\", using default message list \n {}", err);
-            StateSave {
-                messages: HashMap::new(),
-            }
-        }
-    }
-}
-
-/// Saves all messages to the system in a file.
-fn save_messages(messages: MutexGuard<HashMap<String, User>>) {
-    if !messages.is_empty() {
-        match fs::read_dir("./output") {
-            Ok(_) => {
-                // output dir exists
-            }
-            Err(_) => {
-                match fs::create_dir("./output") {
-                    Ok(_) => {
-                        // output dir now exists
-                    }
-                    Err(err) => {
-                        panic!(
-                            "{} \n unable to create output dir, check file permissions?",
-                            err
-                        )
-                    }
-                }
-            }
-        }
-
-        {
-            // block of code to save the serializable state of the program, useful for allowing users to never lose their messages.
-            let state_save = StateSave {
-                messages: messages.clone(),
-            };
-
-            let ser = serde_json::to_string(&state_save).unwrap();
-
-            let ser_file_name = format!("./output/{}", SERDE_FILE_NAME);
-
-            let mut ser_file = File::create(ser_file_name).unwrap();
-
-            ser_file.write_all(ser.as_ref()).unwrap();
-        }
-
-        let file_name = { format!("./output/{}", RENDER_FILE_NAME) };
-
-        // block for rendering out the user data into a pretty file for the host :)
-        let file = File::create(file_name).unwrap();
-        let mut bw = BufWriter::new(file);
-        for (ip, user) in messages.iter() {
-            let messages = &user.messages;
-            let _ = bw.write(format!("{ip}:\n").as_bytes()).unwrap();
-            for msg in messages {
-                let date: DateTime<Local> = DateTime::from(msg.time_stamp);
-                let am_pm = match date.hour12().0 {
-                    true => "PM",
-                    false => "AM",
-                };
-                let time_format = format!(
-                    "{}:{:02}:{:02}{}",
-                    date.hour12().1,
-                    date.minute(),
-                    date.second(),
-                    am_pm
-                );
-                let time_stamp_text = format!(
-                    "{}-{}-{}: {}",
-                    date.year(),
-                    date.month(),
-                    date.day(),
-                    time_format,
-                );
-                let _ = bw
-                    .write(format!("\t[ {} ]: {}\n", time_stamp_text, msg.text).as_bytes())
-                    .unwrap();
-            }
-        }
-        let _ = bw.flush();
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-/// A message is a struct that contains the time they sent that individual message, as well as the text of the message itself.
-struct Message {
-    text: String,
-    #[serde(with = "ts_seconds")]
-    time_stamp: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-/// A user struct is a the value portion of a hashmap with a key of an ip address, struct contains a timestamp of the time they last posted, and a vector of all their messages.
-struct User {
-    messages: Vec<Message>,
-    last_time_post: SystemTime,
-}
-
-impl Default for User {
-    /// Default user is a timestamp that is taken immediately and an empty message struct.
-    fn default() -> Self {
-        User {
-            messages: vec![],
-            last_time_post: SystemTime::now(),
-        }
-    }
-}
-
-impl User {
-    /// Create a new user from a list of messages, time of last post established
-    fn new(message: Message) -> User {
-        User {
-            messages: vec![message],
-            last_time_post: SystemTime::now(),
-        }
-    }
-    /// Add a new message to a user, and update their last time of posting
-    fn push(&mut self, msg: String) {
-        let time = Utc::now();
-        let message: Message = Message {
-            text: msg,
-            time_stamp: time,
-        };
-        self.messages.push(message);
-        self.last_time_post = SystemTime::now();
-    }
-    /// Returns true if the user can post, and false if the user can not post.
-    fn can_post(&self) -> bool {
-        match SystemTime::now().duration_since(self.last_time_post) {
-            Ok(dur) => dur.as_secs() >= POST_COOLDOWN,
-            Err(_) => false,
-        }
-    }
-
-    /// Returns true if the user has already sent this message before, only checks text
-    /// Returns false if the user has not sent this message
-    fn is_dupe_message(&self, msg: &Form<NewMessage>) -> bool {
-        let messages: Vec<&String> = self.messages.iter().map(|msg| &msg.text).collect();
-        messages.contains(&&msg.msg)
-    }
-}
-
-impl Default for Messages {
-    /// Default message struct is just an empty hash map.
-    fn default() -> Self {
-        Messages {
-            messages: Arc::new(Mutex::new(HashMap::new())),
-            banned_ips: vec![],
-        }
-    }
-}
-
 #[get("/view")]
 /// A page to view all messages sent by this specific user, uses their ip address to look them ip in the hash map.
 fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
-    if is_banned(&req.ip().to_string(), messages) {
-        return RawHtml(error_message());
-    }
-
     let msg_vec = get_message_list_from_ip(&req, messages);
 
     let message_list: String = {
@@ -267,25 +77,9 @@ fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
     )
 }
 
-/// A function that outputs a vector of all the messages sent by a given ip address
-fn get_message_list_from_ip(req: &SocketAddr, messages: &State<Messages>) -> Vec<String> {
-    let user_ip = &req.ip().to_string();
-    let msg_vec = match messages.messages.lock().unwrap().get(user_ip) {
-        None => {
-            vec![]
-        }
-        Some(user) => user.messages.clone(),
-    };
-    msg_vec.into_iter().map(|msg| msg.text).collect()
-}
-
 #[get("/")]
 /// Base page that the web page loads to, contains buttons that take you to various other pages.
-fn index(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
-    if is_banned(&req.ip().to_string(), messages) {
-        return RawHtml(error_message());
-    }
-
+fn index(_req: SocketAddr, _messages: &State<Messages>) -> RawHtml<String> {
     // TODO: make these links for buttons open in a new tab, not in current tab.
 
     RawHtml(html! {
@@ -299,18 +93,9 @@ fn index(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
     }.into_string())
 }
 
-#[derive(FromForm, Debug, Clone)]
-/// Form struct for a message
-struct NewMessage {
-    msg: String,
-}
-
 #[get("/new")]
 /// Page for creating a new message
-fn new(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
-    if is_banned(&req.ip().to_string(), messages) {
-        return RawHtml(error_message());
-    }
+fn new(_req: SocketAddr, _messages: &State<Messages>) -> RawHtml<String> {
     RawHtml(
         r#"
     <html lang="en">
@@ -342,10 +127,6 @@ fn submit_message(
     req: SocketAddr,
     messages: &State<Messages>,
 ) -> Redirect {
-    if is_banned(&req.ip().to_string(), messages) {
-        return Redirect::to(uri!("/error_message")); // early return to check if the user is banned
-    }
-
     if !message.msg.is_ascii() {
         return Redirect::to(uri!("/error_message")); // only allow user to use ascii text in their message
     }
@@ -423,16 +204,8 @@ fn error_message() -> String {
 
 #[get("/submit_message")]
 /// Route for redirecting the user from a bad submit message request
-fn submit_message_no_data(req: SocketAddr, messages: &State<Messages>) -> Redirect {
-    if is_banned(&req.ip().to_string(), messages) {
-        return Redirect::to(uri!("/error_message")); // early return to check if the user is banned
-    }
-
+fn submit_message_no_data(_req: SocketAddr, _messages: &State<Messages>) -> Redirect {
     Redirect::to(uri!("/new")) // user some how went to submit message, and there was no form data sent to the server, so we redirect them to the submit page.
-}
-
-fn is_banned(ip: &String, messages: &State<Messages>) -> bool {
-    messages.banned_ips.contains(ip)
 }
 
 #[launch]
@@ -476,6 +249,10 @@ fn rocket() -> Rocket<Build> {
         },
     };
 
+    let metrics_fairing: Metrics = Metrics {
+        banned_ips: state.banned_ips.clone(),
+    };
+
     println!("Loaded banned ips: {:?}", state.banned_ips);
 
     // TODO: embed a previous wasm project e.g. rhythm_rs as dockerfile build time, also use a pattern match to optionally build without it for debug builds. (use rocket::FileServer for this)
@@ -485,20 +262,23 @@ fn rocket() -> Rocket<Build> {
     //  trunk build --release in its directory (possibly use a shell script for this if the build script tool in cargo doesnt like multi command chains e.g. a change directory followed by a command.),
     //  then move its contents into where ever the program expects it to be, like /static or something.
 
-    rocket::build().manage(state).mount(
-        "/",
-        routes![
-            index,
-            submit_message,
-            new,
-            submit_message_no_data,
-            view,
-            slow_down,
-            too_long,
-            too_short,
-            duplicate,
-            error_message,
-        ],
-    )
-        .mount("/public", FileServer::from(relative!("static")))
+    rocket::build()
+        .manage(state)
+        .mount(
+            "/",
+            routes![
+                index,
+                submit_message,
+                new,
+                submit_message_no_data,
+                view,
+                slow_down,
+                too_long,
+                too_short,
+                duplicate,
+                error_message,
+            ],
+        )
+        .mount("/public", FileServer::from(relative!("static"))) // program crashes if static folder does not exist.
+        .attach(metrics_fairing)
 }
