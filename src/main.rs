@@ -28,7 +28,7 @@ pub static POST_COOLDOWN: u64 = 5;
 
 /// The duration in seconds that a user must wait between each message. release only
 #[cfg(not(debug_assertions))]
-pub static POST_COOLDOWN: u64 = 60;
+pub static POST_COOLDOWN: u64 = 3600;
 
 /// The maximum length of a message that can be left by a user.
 pub static MESSAGE_LENGTH_CAP: usize = 150;
