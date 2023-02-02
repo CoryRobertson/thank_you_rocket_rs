@@ -10,7 +10,7 @@ use crate::pages::outcome_pages::*;
 use crate::pages::submit_message::submit_message;
 use crate::pages::view::view;
 use crate::state_management::load_messages;
-use rocket::fs::{relative, FileServer};
+use rocket::fs::{FileServer};
 use rocket::{Build, Rocket};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
