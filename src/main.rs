@@ -12,7 +12,6 @@ use crate::pages::view::view;
 use crate::state_management::load_messages;
 use rocket::fs::{relative, FileServer};
 use rocket::{Build, Rocket};
-use std::fs;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::{Arc, Mutex};
@@ -85,25 +84,7 @@ fn rocket() -> Rocket<Build> {
         banned_ips: state.banned_ips.clone(),
     };
 
-    // if static dir does not exist, make it, panic the program if we cant create it first
-    match fs::read_dir("./static") {
-        Ok(_) => {}
-        Err(_) => match fs::create_dir("./static") {
-            Ok(_) => {}
-            Err(err) => {
-                panic!("Error, unable to create static directory, check parent folder permissions. \n{}",err);
-            }
-        },
-    }
-
     println!("Loaded banned ips: {:?}", state.banned_ips);
-
-    // TODO: embed a previous wasm project e.g. rhythm_rs as dockerfile build time, also use a pattern match to optionally build without it for debug builds. (use rocket::FileServer for this)
-    //  use a build.rs buildscript to auto download rhythm_rs and build:
-    //  check if directory exists for rhythm_rs
-    //  if exists, go to next step, else, git clone it.
-    //  trunk build --release in its directory (possibly use a shell script for this if the build script tool in cargo doesnt like multi command chains e.g. a change directory followed by a command.),
-    //  then move its contents into where ever the program expects it to be, like /static or something.
 
     rocket::build()
         .manage(state)
