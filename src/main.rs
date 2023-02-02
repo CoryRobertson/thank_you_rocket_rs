@@ -122,6 +122,7 @@ fn rocket() -> Rocket<Build> {
                 error_message,
             ],
         )
-        .mount("/public", FileServer::from(relative!("static"))) // program crashes if static folder does not exist.
+        .mount("/rhythm_rs", FileServer::from(relative!("rhythm_rs_dist"))) // program crashes if static folder does not exist.
+        .mount("/discreet_math_fib", FileServer::from(relative!("discreet_math_fib_dist"))) // program crashes if static folder does not exist.
         .attach(metrics_fairing)
 }
