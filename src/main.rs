@@ -10,7 +10,7 @@ use crate::pages::outcome_pages::*;
 use crate::pages::submit_message::submit_message;
 use crate::pages::view::view;
 use crate::state_management::load_messages;
-use rocket::fs::{FileServer};
+use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -104,6 +104,9 @@ fn rocket() -> Rocket<Build> {
             ],
         )
         .mount("/rhythm_rs", FileServer::from("./rhythm_rs_dist")) // program crashes if static folder does not exist.
-        .mount("/discreet_math_fib", FileServer::from("./discreet_math_fib_dist")) // program crashes if static folder does not exist.
+        .mount(
+            "/discreet_math_fib",
+            FileServer::from("./discreet_math_fib_dist"),
+        ) // program crashes if static folder does not exist.
         .attach(metrics_fairing)
 }

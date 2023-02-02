@@ -7,7 +7,6 @@ use rocket::form::Form;
 use rocket::response::Redirect;
 use rocket::State;
 use std::net::SocketAddr;
-use std::time::SystemTime;
 
 #[post("/submit_message", data = "<message>")]
 /// Route for submitting a message, requires post request data that can fill out the form of a new message, verifies the message for various indicators that it shouldn't be saved.
@@ -50,7 +49,6 @@ pub fn submit_message(
                 // if the last time the user posted was 5 or more seconds ago
                 user.push(message.msg.to_string()); // push their new message, this also updates their last time of posting
             } else {
-                user.last_time_post = SystemTime::now();
                 return Redirect::to(uri!("/slow_down")); // early return and tell the user to slow down
             }
         }

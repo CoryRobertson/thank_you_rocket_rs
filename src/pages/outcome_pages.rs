@@ -1,12 +1,37 @@
 use crate::message::Messages;
+use crate::POST_COOLDOWN;
 use rocket::response::Redirect;
 use rocket::State;
 use std::net::SocketAddr;
+use std::time::SystemTime;
 
 #[get("/slow_down")]
 /// Route for requiring the user to slow down their message send rate.
-pub fn slow_down() -> String {
-    "Please slow down, you are trying to post too often :)".to_string()
+pub fn slow_down(req: SocketAddr, messages: &State<Messages>) -> String {
+    let time_remaining = {
+        match messages.messages.lock().unwrap().get(&req.ip().to_string()) {
+            None => 0,
+            Some(user) => match SystemTime::now().duration_since(user.last_time_post) {
+                Ok(time) => {
+                    if !user.can_post() {
+                        time.as_secs()
+                    } else {
+                        0
+                    }
+                }
+                Err(_) => 0,
+            },
+        }
+    };
+
+    format!(
+        "\
+    Please slow down, you are trying to post too often :) \n\
+    You need to wait {} seconds between posts.\n\
+    Your remaining cooldown is {} seconds\
+    ",
+        POST_COOLDOWN, time_remaining
+    )
 }
 
 #[get("/too_long")]
