@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
-use std::sync::MutexGuard;
 
 #[derive(Serialize, Deserialize)]
 /// A serializable version of the Messages struct, used only for saving.
@@ -50,7 +49,7 @@ pub fn load_messages() -> StateSave {
 }
 
 /// Saves all messages to the system in a file.
-pub fn save_messages(messages: MutexGuard<HashMap<String, User>>) {
+pub fn save_messages(messages: HashMap<String, User>) {
     if !messages.is_empty() {
         match fs::read_dir("./output") {
             Ok(_) => {

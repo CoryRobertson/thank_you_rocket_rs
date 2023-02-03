@@ -27,34 +27,37 @@ pub fn submit_message(
         return Redirect::to(uri!("/too_short")); // early return to tell the user their message is too short
     }
 
-    let mut lock = messages.messages.lock().unwrap();
-    let user_ip = &req.ip().to_string();
-    match lock.get_mut(user_ip) {
-        None => {
-            // let mut new_vec = vec![]; // create a new vector and add it to this users ip address
-            // new_vec.push(message.msg.to_string()); // eventually push the message they sent, not just underscores
-            let msg = Message {
-                text: message.msg.to_string(),
-                time_stamp: Utc::now(),
-            };
-            lock.insert(user_ip.to_string(), User::new(msg)); // insert the new vector with the key of the users ip address
-        }
-        Some(user) => {
-            // let time_since_last_post = SystemTime::now().duration_since(user.last_time_post).unwrap().as_secs();
-            if user.can_post() {
-                if user.is_dupe_message(&message) {
-                    return Redirect::to(uri!("/duplicate"));
-                } // check if the user is about to post a duplicate message
-
-                // if the last time the user posted was 5 or more seconds ago
-                user.push(message.msg.to_string()); // push their new message, this also updates their last time of posting
-            } else {
-                return Redirect::to(uri!("/slow_down")); // early return and tell the user to slow down
+    {
+        let mut lock = messages.messages.write().unwrap();
+        let user_ip = &req.ip().to_string();
+        match lock.get_mut(user_ip) {
+            None => {
+                // let mut new_vec = vec![]; // create a new vector and add it to this users ip address
+                // new_vec.push(message.msg.to_string()); // eventually push the message they sent, not just underscores
+                let msg = Message {
+                    text: message.msg.to_string(),
+                    time_stamp: Utc::now(),
+                };
+                lock.insert(user_ip.to_string(), User::new(msg)); // insert the new vector with the key of the users ip address
             }
-        }
-    };
+            Some(user) => {
+                // let time_since_last_post = SystemTime::now().duration_since(user.last_time_post).unwrap().as_secs();
+                if user.can_post() {
+                    if user.is_dupe_message(&message) {
+                        return Redirect::to(uri!("/duplicate"));
+                    } // check if the user is about to post a duplicate message
 
-    save_messages(lock);
+                    // if the last time the user posted was 5 or more seconds ago
+                    user.push(message.msg.to_string()); // push their new message, this also updates their last time of posting
+                } else {
+                    return Redirect::to(uri!("/slow_down")); // early return and tell the user to slow down
+                }
+            }
+        };
+    } // block for locking the message block in write mode.
+
+    let lock = messages.messages.read().unwrap();
+    save_messages(lock.clone());
 
     Redirect::to(uri!("/"))
 }

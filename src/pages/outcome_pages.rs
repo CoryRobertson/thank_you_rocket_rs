@@ -9,7 +9,7 @@ use std::time::SystemTime;
 /// Route for requiring the user to slow down their message send rate.
 pub fn slow_down(req: SocketAddr, messages: &State<Messages>) -> String {
     let time_remaining = {
-        match messages.messages.lock().unwrap().get(&req.ip().to_string()) {
+        match messages.messages.read().unwrap().get(&req.ip().to_string()) {
             None => 0,
             Some(user) => match SystemTime::now().duration_since(user.last_time_post) {
                 Ok(time) => {

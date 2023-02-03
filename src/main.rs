@@ -14,7 +14,7 @@ use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 mod message;
 mod metrics;
@@ -46,7 +46,7 @@ fn rocket() -> Rocket<Build> {
     let load = load_messages();
     println!("Loaded message data: {:?}", load.messages);
     let state = Messages {
-        messages: Arc::new(Mutex::new(load.messages)),
+        messages: Arc::new(RwLock::new(load.messages)),
         banned_ips: {
             if let Ok(file) = File::open("./banned_ips.txt") {
                 let br = BufReader::new(file);
