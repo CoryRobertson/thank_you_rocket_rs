@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  web:
+    image: "thank_you_rocket:latest"
+    container_name: "thank_you_rocket"
+    restart: unless-stopped
+    ports:
+        - "80:80"
+    volumes:
+        - "./compose-output:/output"
