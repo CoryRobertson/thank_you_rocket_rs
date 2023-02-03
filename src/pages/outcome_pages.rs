@@ -14,7 +14,7 @@ pub fn slow_down(req: SocketAddr, messages: &State<Messages>) -> String {
             Some(user) => match SystemTime::now().duration_since(user.last_time_post) {
                 Ok(time) => {
                     if !user.can_post() {
-                        time.as_secs()
+                        POST_COOLDOWN - time.as_secs()
                     } else {
                         0
                     }
@@ -26,9 +26,9 @@ pub fn slow_down(req: SocketAddr, messages: &State<Messages>) -> String {
 
     format!(
         "\
-    Please slow down, you are trying to post too often :) \n\
+    Please slow down, you are trying to post too often. :) \n\
     You need to wait {} seconds between posts.\n\
-    Your remaining cooldown is {} seconds\
+    Your remaining cooldown is {} seconds.\
     ",
         POST_COOLDOWN, time_remaining
     )
