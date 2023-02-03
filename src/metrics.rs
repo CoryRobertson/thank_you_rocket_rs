@@ -1,6 +1,6 @@
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::uri::Origin;
-use rocket::{Data, Request};
+use rocket::{Data, Request, Response};
 
 /// A struct that can contain things we take metrics on, at the moment it only contains the list of banned ips, but will eventually keep track of how many people have view the page for example
 /// Or even keeping a how many unique users have viewed the page.
@@ -34,5 +34,9 @@ impl Fairing for Metrics {
                 }
             }
         }
+    }
+
+    async fn on_response<'r>(&self, _req: &'r Request<'_>, _res: &mut Response<'r>) {
+        // unimplemented
     }
 }
