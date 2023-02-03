@@ -21,4 +21,5 @@ COPY --from=builder /rhythm_rs_dist ./rhythm_rs_dist
 # copy rocket toml from builder into image.
 COPY --from=builder /Rocket.toml .
 EXPOSE 80
+VOLUME ["/output"]
 CMD ["./thank_you_rocket_rs"]
