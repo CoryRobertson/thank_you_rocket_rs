@@ -9,7 +9,7 @@ pub struct Metrics {
 }
 
 /// Function that checks if the given ip address is banned
-fn is_banned(ip: &String, banned_ips: &Vec<String>) -> bool {
+fn is_banned(ip: &String, banned_ips: &[String]) -> bool {
     banned_ips.contains(ip)
 }
 

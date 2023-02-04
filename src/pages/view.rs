@@ -17,7 +17,7 @@ pub fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
             // make a vector full of all of the messages this specific user has sent
             let escaped = html_escape::encode_safe(&msg);
             // append each message they sent, after escaping it
-            string_list.push_str(&format!("{}<br>", escaped));
+            string_list.push_str(&format!("{escaped}<br>"));
             // this text is escaped, but we put a line break after so it has one line per message
 
             // string_list // return this string, which gets collected as a single string
@@ -29,7 +29,7 @@ pub fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
     RawHtml(
         html! {
            h1 {"Messages sent:"}
-            (format!("IP: {}", user_ip))
+            (format!("IP: {user_ip}"))
             br;
             br;
             (PreEscaped(message_list))

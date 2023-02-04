@@ -27,10 +27,9 @@ pub fn slow_down(req: SocketAddr, messages: &State<Messages>) -> String {
     format!(
         "\
     Please slow down, you are trying to post too often. :) \n\
-    You need to wait {} seconds between posts.\n\
-    Your remaining cooldown is {} seconds.\
-    ",
-        POST_COOLDOWN, time_remaining
+    You need to wait {POST_COOLDOWN} seconds between posts.\n\
+    Your remaining cooldown is {time_remaining} seconds.\
+    "
     )
 }
 

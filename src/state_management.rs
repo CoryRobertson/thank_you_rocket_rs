@@ -15,11 +15,11 @@ pub struct StateSave {
 
 /// Loads all messages from the system, outputs a new state if no messages were found.
 pub fn load_messages() -> StateSave {
-    let file_name = format!("./output/{}", SERDE_FILE_NAME);
+    let file_name = format!("./output/{SERDE_FILE_NAME}");
     let mut file = match File::open(file_name) {
         Ok(f) => f,
         Err(err) => {
-            println!("Didnt find serde file name. {}", err);
+            println!("Didnt find serde file name. {err}");
             return StateSave {
                 messages: HashMap::new(),
             };
@@ -30,7 +30,7 @@ pub fn load_messages() -> StateSave {
     match file.read_to_string(&mut s) {
         Ok(_) => {}
         Err(err) => {
-            println!("Unable to read to string from save file. {}", err);
+            println!("Unable to read to string from save file. {err}");
             return StateSave {
                 messages: HashMap::new(),
             };
@@ -40,7 +40,7 @@ pub fn load_messages() -> StateSave {
     match serde_json::from_str::<StateSave>(&s) {
         Ok(state) => state,
         Err(err) => {
-            println!("ERROR UNABLE TO READ STATE SAVE FROM \"messages.ser\", using default message list \n {}", err);
+            println!("ERROR UNABLE TO READ STATE SAVE FROM \"messages.ser\", using default message list \n {err}");
             StateSave {
                 messages: HashMap::new(),
             }
@@ -61,10 +61,7 @@ pub fn save_messages(messages: HashMap<String, User>) {
                         // output dir now exists
                     }
                     Err(err) => {
-                        panic!(
-                            "{} \n unable to create output dir, check file permissions?",
-                            err
-                        )
+                        panic!("{err} \n unable to create output dir, check file permissions?")
                     }
                 }
             }
@@ -78,14 +75,14 @@ pub fn save_messages(messages: HashMap<String, User>) {
 
             let ser = serde_json::to_string(&state_save).unwrap();
 
-            let ser_file_name = format!("./output/{}", SERDE_FILE_NAME);
+            let ser_file_name = format!("./output/{SERDE_FILE_NAME}");
 
             let mut ser_file = File::create(ser_file_name).unwrap();
 
             ser_file.write_all(ser.as_ref()).unwrap();
         }
 
-        let file_name = { format!("./output/{}", RENDER_FILE_NAME) };
+        let file_name = { format!("./output/{RENDER_FILE_NAME}") };
 
         // block for rendering out the user data into a pretty file for the host :)
         let file = File::create(file_name).unwrap();
