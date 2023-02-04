@@ -1,4 +1,5 @@
 use crate::message::Messages;
+use crate::VERSION;
 use maud::html;
 use maud::PreEscaped;
 use maud::DOCTYPE;
@@ -10,6 +11,8 @@ use std::net::SocketAddr;
 /// Base page that the web page loads to, contains buttons that take you to various other pages.
 pub fn index(_req: SocketAddr, _messages: &State<Messages>) -> RawHtml<String> {
     // TODO: make these links for buttons open in a new tab, not in current tab.
+
+    let version_number_test = format!("v{}", VERSION.unwrap_or("UNKNOWN VERSION"));
 
     RawHtml(html! {
         (DOCTYPE)
@@ -24,13 +27,26 @@ pub fn index(_req: SocketAddr, _messages: &State<Messages>) -> RawHtml<String> {
         (PreEscaped("<button onclick=\"window.location.href=\'/view\';\">View written messages</button>"))
         br;
         h3 {"Browser Capable Projects:"}
-        // br;
         a href="/rhythm_rs" {"Rhythm Rs"}
         br;
         a href="/discreet_math_fib" {"Fibonacci Series"}
         br;
         br;
         a href="https://github.com/CoryRobertson" {"github.com/CoryRobertson"}
+        br;
+
+        (PreEscaped("<style>
+        .version-footer {
+            height: 30px;
+            position: fixed;
+            bottom:0%;
+            width:99%;
+            text-align: right;
+            opacity: 0.25;
+        }</style>"
+        ))
+
+        div."version-footer" { (version_number_test) }
 
     }.into_string())
 }

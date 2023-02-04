@@ -39,6 +39,8 @@ pub static MESSAGE_LENGTH_MIN: usize = 3;
 pub static SERDE_FILE_NAME: &str = "messages.ser";
 pub static RENDER_FILE_NAME: &str = "messages.sav";
 
+pub static VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
+
 #[launch]
 fn rocket() -> Rocket<Build> {
     // using this return type isn't shown in the documentation from my minimal looking, but makes intellij happy.
