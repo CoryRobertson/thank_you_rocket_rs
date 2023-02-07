@@ -14,7 +14,7 @@ use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
 mod message;
 mod metrics;
@@ -84,6 +84,7 @@ fn rocket() -> Rocket<Build> {
 
     let metrics_fairing: Metrics = Metrics {
         banned_ips: state.banned_ips.clone(),
+        unique_users: Arc::new(Mutex::new(Default::default())),
     };
 
     println!("Loaded banned ips: {:?}", state.banned_ips);

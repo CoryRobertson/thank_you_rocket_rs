@@ -1453,7 +1453,7 @@ dependencies = [
 
 [[package]]
 name = "thank_you_rocket_rs"
-version = "0.8.5"
+version = "0.8.6"
 dependencies = [
  "chrono",
  "chrono-tz",
