@@ -15,7 +15,6 @@ pub fn submit_message(
     req: SocketAddr,
     messages: &State<Messages>,
 ) -> Redirect {
-
     let user_ip = &req.ip().to_string();
 
     if !message.msg.is_ascii() {
