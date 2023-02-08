@@ -2,7 +2,7 @@
 #[macro_use]
 extern crate rocket;
 
-use crate::message::Messages;
+use crate::message::TYRState;
 use crate::metrics::Metrics;
 use crate::pages::error_catch_pages::not_found;
 use crate::pages::index::index;
@@ -16,6 +16,7 @@ use rocket::{Build, Rocket};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::{Arc, Mutex, RwLock};
+use uuid::Uuid;
 
 mod message;
 mod metrics;
@@ -45,6 +46,7 @@ pub static VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 // TODO: implement a random uuid as a password, generated at runtime, navigating to this page displays all messages sent and stored in the state.
 //  password would use the uuid crate, and have a page that is of low route priority, and takes in any string, validates the priority, then displays the content, if not, displays the 404 error
 //  this will use a request guard!
+//  this will also use a specific page that stores the key as a cookie?
 
 #[launch]
 fn rocket() -> Rocket<Build> {
@@ -52,7 +54,7 @@ fn rocket() -> Rocket<Build> {
 
     let load = load_messages();
     println!("Loaded message data: {:?}", load.messages);
-    let state = Messages {
+    let state = TYRState {
         messages: Arc::new(RwLock::new(load.messages)),
         banned_ips: {
             if let Ok(file) = File::open("./banned_ips.txt") {
@@ -85,11 +87,13 @@ fn rocket() -> Rocket<Build> {
                 vec![]
             }
         },
+        admin_uuid_page: Uuid::new_v4(),
     };
 
     let metrics_fairing: Metrics = Metrics {
         banned_ips: state.banned_ips.clone(),
         unique_users: Arc::new(Mutex::new(Default::default())),
+        // TODO: if metrics are needed on any pages, clone the arc that is here into the state before we build the rocket.
     };
 
     println!("Loaded banned ips: {:?}", state.banned_ips);

@@ -6,13 +6,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, RwLock};
+use uuid::Uuid;
 
 #[derive(Clone)]
 /// The state struct for the rocket web frame work.
-pub struct Messages {
+pub struct TYRState {
     // hash map consists of the ip address as a key, and the user struct itself.
     pub messages: Arc<RwLock<HashMap<String, User>>>,
     pub banned_ips: Vec<String>, // vector full of all of the banned ips read from file at startup
+    pub admin_uuid_page: Uuid,
 }
 
 #[derive(FromForm, Debug, Clone)]
@@ -29,18 +31,19 @@ pub struct Message {
     pub time_stamp: DateTime<Utc>,
 }
 
-impl Default for Messages {
+impl Default for TYRState {
     /// Default message struct is just an empty hash map.
     fn default() -> Self {
-        Messages {
+        TYRState {
             messages: Arc::new(RwLock::new(HashMap::new())),
             banned_ips: vec![],
+            admin_uuid_page: Uuid::new_v4(),
         }
     }
 }
 
 /// A function that outputs a vector of all the messages sent by a given ip address
-pub fn get_message_list_from_ip(req: &SocketAddr, messages: &State<Messages>) -> Vec<String> {
+pub fn get_message_list_from_ip(req: &SocketAddr, messages: &State<TYRState>) -> Vec<String> {
     let user_ip = &req.ip().to_string();
     let msg_vec = match messages.messages.read().unwrap().get(user_ip) {
         None => {

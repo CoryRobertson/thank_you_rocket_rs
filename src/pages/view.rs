@@ -1,4 +1,4 @@
-use crate::message::{get_message_list_from_ip, Messages};
+use crate::message::{get_message_list_from_ip, TYRState};
 use maud::html;
 use maud::PreEscaped;
 use rocket::response::content::RawHtml;
@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 
 #[get("/view")]
 /// A page to view all messages sent by this specific user, uses their ip address to look them ip in the hash map.
-pub fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
+pub fn view(req: SocketAddr, messages: &State<TYRState>) -> RawHtml<String> {
     let msg_vec = get_message_list_from_ip(&req, messages);
 
     let message_list: String = {
@@ -28,7 +28,7 @@ pub fn view(req: SocketAddr, messages: &State<Messages>) -> RawHtml<String> {
     let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
     RawHtml(
         html! {
-           h1 {"Messages sent:"}
+           h1 {"TYRState sent:"}
             (format!("IP: {user_ip}"))
             br;
             br;

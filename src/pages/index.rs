@@ -1,4 +1,4 @@
-use crate::message::Messages;
+use crate::message::TYRState;
 use crate::VERSION;
 use maud::html;
 use maud::PreEscaped;
@@ -9,7 +9,7 @@ use std::net::SocketAddr;
 
 #[get("/")]
 /// Base page that the web page loads to, contains buttons that take you to various other pages.
-pub fn index(_req: SocketAddr, _messages: &State<Messages>) -> RawHtml<String> {
+pub fn index(_req: SocketAddr, _messages: &State<TYRState>) -> RawHtml<String> {
     // TODO: make these links for buttons open in a new tab, not in current tab.
 
     let version_number_test = format!("v{}", VERSION.unwrap_or("UNKNOWN VERSION"));

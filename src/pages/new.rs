@@ -1,11 +1,11 @@
-use crate::message::Messages;
+use crate::message::TYRState;
 use rocket::response::content::RawHtml;
 use rocket::State;
 use std::net::SocketAddr;
 
 #[get("/new")]
 /// Page for creating a new message
-pub fn new(_req: SocketAddr, _messages: &State<Messages>) -> RawHtml<String> {
+pub fn new(_req: SocketAddr, _messages: &State<TYRState>) -> RawHtml<String> {
     RawHtml(
         r#"
     <html lang="en">

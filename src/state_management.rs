@@ -8,7 +8,7 @@ use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 
 #[derive(Serialize, Deserialize)]
-/// A serializable version of the Messages struct, used only for saving.
+/// A serializable version of the TYRState struct, used only for saving.
 pub struct StateSave {
     pub(crate) messages: HashMap<String, User>,
 }
