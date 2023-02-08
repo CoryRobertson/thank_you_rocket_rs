@@ -4,11 +4,11 @@ extern crate rocket;
 
 use crate::message::Messages;
 use crate::metrics::Metrics;
+use crate::pages::error_catch_pages::not_found;
 use crate::pages::index::index;
 use crate::pages::new::new;
 use crate::pages::outcome_pages::*;
 use crate::pages::submit_message::submit_message;
-use crate::pages::error_catch_pages::not_found;
 use crate::pages::view::view;
 use crate::state_management::load_messages;
 use rocket::fs::FileServer;
@@ -111,7 +111,7 @@ fn rocket() -> Rocket<Build> {
                 error_message,
             ],
         )
-        .register("/",catchers![not_found])
+        .register("/", catchers![not_found])
         .mount("/static", FileServer::from("./static"))
         .mount("/rhythm_rs", FileServer::from("./rhythm_rs_dist")) // program crashes if static folder does not exist.
         .mount(
