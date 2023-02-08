@@ -18,6 +18,8 @@ COPY --from=builder /target/release/thank_you_rocket_rs ./thank_you_rocket_rs
 COPY --from=builder /discreet_math_fib_dist ./discreet_math_fib_dist
 # copy rhythm_rs dist version from builder into image
 COPY --from=builder /rhythm_rs_dist ./rhythm_rs_dist
+# copy static dir from builder into image
+COPY --from=builder /static ./static
 # copy rocket toml from builder into image.
 COPY --from=builder /Rocket.toml .
 EXPOSE 80
