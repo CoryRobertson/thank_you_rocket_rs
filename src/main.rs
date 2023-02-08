@@ -8,6 +8,7 @@ use crate::pages::index::index;
 use crate::pages::new::new;
 use crate::pages::outcome_pages::*;
 use crate::pages::submit_message::submit_message;
+use crate::pages::error_catch_pages::not_found;
 use crate::pages::view::view;
 use crate::state_management::load_messages;
 use rocket::fs::FileServer;
@@ -40,6 +41,10 @@ pub static SERDE_FILE_NAME: &str = "messages.ser";
 pub static RENDER_FILE_NAME: &str = "messages.sav";
 
 pub static VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
+
+// TODO: implement a random uuid as a password, generated at runtime, navigating to this page displays all messages sent and stored in the state.
+//  password would use the uuid crate, and have a page that is of low route priority, and takes in any string, validates the priority, then displays the content, if not, displays the 404 error
+//  this will use a request guard!
 
 #[launch]
 fn rocket() -> Rocket<Build> {
@@ -106,6 +111,8 @@ fn rocket() -> Rocket<Build> {
                 error_message,
             ],
         )
+        .register("/",catchers![not_found])
+        .mount("/static", FileServer::from("./static"))
         .mount("/rhythm_rs", FileServer::from("./rhythm_rs_dist")) // program crashes if static folder does not exist.
         .mount(
             "/discreet_math_fib",
