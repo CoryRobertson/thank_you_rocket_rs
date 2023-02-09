@@ -3,6 +3,7 @@
 extern crate rocket;
 
 use crate::state_management::*;
+use crate::pages::admin::admin;
 use crate::metrics::Metrics;
 use crate::pages::error_catch_pages::not_found;
 use crate::pages::index::index;
@@ -82,6 +83,7 @@ fn rocket() -> Rocket<Build> {
                 vec![]
             }
         },
+        admin_state: Default::default(),
     };
 
     let metrics_fairing: Metrics = Metrics {
@@ -110,6 +112,7 @@ fn rocket() -> Rocket<Build> {
                 login,
                 login_post,
                 logout,
+                admin,
             ],
         )
         .register("/", catchers![not_found])

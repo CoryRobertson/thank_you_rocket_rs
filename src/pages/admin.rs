@@ -14,3 +14,13 @@
 // structure will be mostly: user connects to admin only page (a page with the admin request guard) -> request guard checks users cookies for a hashed password that fits
 // the admins password -> if cookie is correct, let them in, if not, redirect them somewhere else or just 404 them or something.
 // potentially put all of this in some module, but maybe not?
+
+use maud::html;
+use rocket::response::content::RawHtml;
+
+#[get("/admin")]
+pub fn admin() -> RawHtml<String> {
+    RawHtml(html! {
+        p {"you are an admin!"}
+    }.into_string())
+}

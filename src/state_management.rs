@@ -14,12 +14,23 @@ pub struct StateSave {
     pub(crate) messages: HashMap<String, User>,
 }
 
-#[derive(Clone)]
 /// The state struct for the rocket web frame work.
 pub struct TYRState {
     // hash map consists of the ip address as a key, and the user struct itself.
     pub messages: Arc<RwLock<HashMap<String, User>>>,
     pub banned_ips: Vec<String>, // vector full of all of the banned ips read from file at startup
+    pub admin_state: Arc<RwLock<AdminState>>,
+}
+
+pub struct AdminState {
+    pub admin_created: bool,
+    pub admin_hashes: Vec<String>,
+}
+
+impl Default for AdminState {
+    fn default() -> Self {
+        AdminState{ admin_created: false, admin_hashes: vec![] }
+    }
 }
 
 impl Default for TYRState {
@@ -28,6 +39,7 @@ impl Default for TYRState {
         TYRState {
             messages: Arc::new(RwLock::new(HashMap::new())),
             banned_ips: vec![],
+            admin_state: Arc::from(RwLock::from(AdminState::default())),
         }
     }
 }

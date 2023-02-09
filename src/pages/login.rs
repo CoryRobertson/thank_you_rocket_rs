@@ -6,6 +6,8 @@ use rocket::form::Form;
 use rocket::http::{Cookie, CookieJar, SameSite};
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
+use rocket::State;
+use crate::state_management::TYRState;
 
 lazy_static! {
     // probably not best practice, but a lazy static salt at run time seems like an ok idea for now.
@@ -58,20 +60,29 @@ pub fn logout(jar: &CookieJar) -> Redirect {
 }
 
 #[post("/login", data = "<password>")]
-pub fn login_post(password: Form<Login>, jar: &CookieJar) -> Redirect {
+pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState>) -> Redirect {
     let a2 = Argon2::default();
     // at the moment, salt is insecure, fix later FIXME
     let hash_password = a2
         .hash_password(password.password.as_bytes(), "ABFDABFDABFDABFD")
         .unwrap();
 
-    println!("Password: {}", password.password);
-    println!("Hash: {}", hash_password.hash.unwrap());
-
-    // TODO: get reference to cookie jar here, then store the users password hash in their cookie.
+    // println!("Password: {}", password.password);
+    // println!("Hash: {}", hash_password.hash.unwrap());
     let cookie = Cookie::build("login",hash_password.hash.unwrap().to_string())
         .secure(true)
         .same_site(SameSite::Strict);
     jar.add(cookie.finish());
+
+    let admin_exists: bool = {
+        state.admin_state.read().unwrap().admin_created
+    }; // state for if an admin exists
+
+    if !admin_exists {
+        let mut lock = state.admin_state.write().unwrap();
+        lock.admin_created = true;
+        lock.admin_hashes.push(hash_password.hash.unwrap().to_string());
+    }
+
     Redirect::to(uri!("/"))
 }
