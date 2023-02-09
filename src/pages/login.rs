@@ -1,11 +1,11 @@
-use argon2::{Argon2, PasswordHasher};
 use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::SaltString;
+use argon2::{Argon2, PasswordHasher};
 use lazy_static::lazy_static;
 use rocket::form::Form;
+use rocket::http::CookieJar;
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
-
 
 lazy_static! {
     // probably not best practice, but a lazy static salt at run time seems like an ok idea for now.
@@ -36,23 +36,28 @@ pub fn login() -> RawHtml<String> {
         </body>
     </html>
     "#
-            .parse()
-            .unwrap(),
+        .parse()
+        .unwrap(),
     )
 }
 
 #[derive(FromForm, Debug, Clone)]
 pub struct Login {
-    pub password: String
+    pub password: String,
 }
 
 #[post("/login", data = "<password>")]
-pub fn login_post(password: Form<Login>) -> Redirect {
+pub fn login_post(password: Form<Login>, jar: &CookieJar<'_>) -> Redirect {
     let a2 = Argon2::default();
     // at the moment, salt is insecure, fix later FIXME
-    let hash_password = a2.hash_password(password.password.as_bytes(),"ABFDABFDABFDABFD").unwrap();
+    let hash_password = a2
+        .hash_password(password.password.as_bytes(), "ABFDABFDABFDABFD")
+        .unwrap();
 
     println!("Password: {}", password.password);
     println!("Hash: {}", hash_password.hash.unwrap());
+
+    // TODO: get reference to cookie jar here, then store the users password hash in their cookie.
+
     Redirect::to(uri!("/"))
 }
