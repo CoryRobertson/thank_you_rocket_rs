@@ -8,6 +8,7 @@ use crate::pages::error_catch_pages::not_found;
 use crate::pages::index::index;
 use crate::pages::new::new;
 use crate::pages::outcome_pages::*;
+use crate::pages::login::*;
 use crate::pages::submit_message::submit_message;
 use crate::pages::view::view;
 use crate::state_management::load_messages;
@@ -108,6 +109,8 @@ fn rocket() -> Rocket<Build> {
                 too_short,
                 duplicate,
                 error_message,
+                login,
+                login_post,
             ],
         )
         .register("/", catchers![not_found])
