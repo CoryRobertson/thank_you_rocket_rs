@@ -93,12 +93,12 @@ async fn save_metrics(metrics: HashMap<String, UserMetric>) {
         .write(format!("Unique view count: {} \n", metrics.len()).as_bytes())
         .unwrap();
     let _ = buf
-        .write(format!("Request count: {} \n", req_count).as_bytes())
+        .write(format!("Request count: {req_count} \n").as_bytes())
         .unwrap();
 
     for (socket_addr, user_metric) in metrics.iter() {
         let _ = buf
-            .write(format!("{}: \n", socket_addr).as_bytes())
+            .write(format!("{socket_addr}: \n").as_bytes())
             .expect("Unable to write to file buffer for metrics");
         let _ = buf
             .write(format!("\t{} \n", user_metric.request_count).as_bytes())
