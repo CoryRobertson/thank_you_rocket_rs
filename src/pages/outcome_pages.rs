@@ -1,4 +1,4 @@
-use crate::message::TYRState;
+use crate::TYRState;
 use crate::POST_COOLDOWN;
 use rocket::response::Redirect;
 use rocket::State;

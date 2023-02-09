@@ -1,9 +1,9 @@
-use crate::message::TYRState;
+use crate::TYRState;
 use crate::VERSION;
 use maud::html;
 use maud::PreEscaped;
 use maud::DOCTYPE;
-use rocket::http::CookieJar;
+use rocket::http::{CookieJar};
 use rocket::response::content::RawHtml;
 use rocket::State;
 use std::net::SocketAddr;
@@ -13,13 +13,21 @@ use std::net::SocketAddr;
 pub fn index(
     _req: SocketAddr,
     _messages: &State<TYRState>,
-    jar: &CookieJar<'_>,
+    jar: &CookieJar,
 ) -> RawHtml<String> {
     // TODO: make these links for buttons open in a new tab, not in current tab.
 
     let version_number_test = format!("v{}", VERSION.unwrap_or("UNKNOWN VERSION"));
 
-    // TODO: display the users cookie for their login here, or display none if they are not logged in.
+
+    let login_info: String = match jar.get("login") {
+        None => {
+            format!("Not logged in.")
+        }
+        Some(login_cookie) => {
+            format!("Logged in, hash: {}", login_cookie.value())
+        }
+    };
 
     RawHtml(html! {
         (DOCTYPE)
@@ -32,6 +40,11 @@ pub fn index(
         a href="/login" {"login"}
         br;
         br;
+        a href="/logout" {"logout"}
+        br;
+        br;
+
+        p { (login_info) }
 
         (PreEscaped("<button onclick=\"window.location.href=\'/new\';\">Write a message</button>"))
         br;

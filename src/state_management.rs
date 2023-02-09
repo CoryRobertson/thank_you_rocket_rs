@@ -6,11 +6,30 @@ use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
+use std::sync::{Arc, RwLock};
 
 #[derive(Serialize, Deserialize)]
 /// A serializable version of the TYRState struct, used only for saving.
 pub struct StateSave {
     pub(crate) messages: HashMap<String, User>,
+}
+
+#[derive(Clone)]
+/// The state struct for the rocket web frame work.
+pub struct TYRState {
+    // hash map consists of the ip address as a key, and the user struct itself.
+    pub messages: Arc<RwLock<HashMap<String, User>>>,
+    pub banned_ips: Vec<String>, // vector full of all of the banned ips read from file at startup
+}
+
+impl Default for TYRState {
+    /// Default message struct is just an empty hash map.
+    fn default() -> Self {
+        TYRState {
+            messages: Arc::new(RwLock::new(HashMap::new())),
+            banned_ips: vec![],
+        }
+    }
 }
 
 /// Loads all messages from the system, outputs a new state if no messages were found.

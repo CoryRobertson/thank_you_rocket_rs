@@ -1,4 +1,5 @@
-use crate::message::{get_message_list_from_ip, TYRState};
+use crate::message::{get_message_list_from_ip};
+use crate::TYRState;
 use maud::html;
 use maud::PreEscaped;
 use rocket::response::content::RawHtml;

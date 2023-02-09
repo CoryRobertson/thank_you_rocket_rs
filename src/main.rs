@@ -2,7 +2,7 @@
 #[macro_use]
 extern crate rocket;
 
-use crate::message::TYRState;
+use crate::state_management::*;
 use crate::metrics::Metrics;
 use crate::pages::error_catch_pages::not_found;
 use crate::pages::index::index;
@@ -17,7 +17,6 @@ use rocket::{Build, Rocket};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::{Arc, Mutex, RwLock};
-use uuid::Uuid;
 
 mod message;
 mod metrics;
@@ -83,7 +82,6 @@ fn rocket() -> Rocket<Build> {
                 vec![]
             }
         },
-        admin_uuid_page: Uuid::new_v4(),
     };
 
     let metrics_fairing: Metrics = Metrics {
@@ -111,6 +109,7 @@ fn rocket() -> Rocket<Build> {
                 error_message,
                 login,
                 login_post,
+                logout,
             ],
         )
         .register("/", catchers![not_found])
