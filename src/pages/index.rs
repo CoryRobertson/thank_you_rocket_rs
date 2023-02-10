@@ -1,14 +1,14 @@
+use crate::pages::login::login;
 use crate::TYRState;
 use crate::VERSION;
 use maud::html;
 use maud::PreEscaped;
 use maud::DOCTYPE;
+use rocket::form::validate::Contains;
 use rocket::http::CookieJar;
 use rocket::response::content::RawHtml;
 use rocket::State;
 use std::net::SocketAddr;
-use rocket::form::validate::Contains;
-use crate::pages::login::login;
 
 #[get("/")]
 /// Base page that the web page loads to, contains buttons that take you to various other pages.
@@ -29,17 +29,19 @@ pub fn index(_req: SocketAddr, state: &State<TYRState>, jar: &CookieJar) -> RawH
             format!("Not logged in.")
         }
         Some(logged_in_cookie) => {
-            is_admin = state.admin_state.read().unwrap().admin_hashes.contains(logged_in_cookie.value().to_string());
+            is_admin = state
+                .admin_state
+                .read()
+                .unwrap()
+                .admin_hashes
+                .contains(logged_in_cookie.value().to_string());
             if is_admin {
                 format!("Logged in as admin.")
             } else {
                 format!("Logged in.")
             }
-
         }
     };
-
-
 
     RawHtml(html! {
         (DOCTYPE)

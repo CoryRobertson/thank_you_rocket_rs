@@ -17,10 +17,11 @@ pub struct Message {
     pub text: String,
     #[serde(with = "ts_seconds")]
     pub time_stamp: DateTime<Utc>,
+    pub user_hash: Option<String>, // if no user hash, display always, if user hash exists and matches, display then only.
 }
 
 /// A function that outputs a vector of all the messages sent by a given ip address
-pub fn get_message_list_from_ip(req: &SocketAddr, messages: &State<TYRState>) -> Vec<String> {
+pub fn _get_message_list_from_ip(req: &SocketAddr, messages: &State<TYRState>) -> Vec<String> {
     let user_ip = &req.ip().to_string();
     let msg_vec = match messages.messages.read().unwrap().get(user_ip) {
         None => {

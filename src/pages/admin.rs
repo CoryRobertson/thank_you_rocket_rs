@@ -53,24 +53,38 @@ impl<'r> FromRequest<'r> for IsAdminGuard {
 
 #[get("/admin")]
 pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
-
     let messages = state.messages.read().unwrap().clone();
     let message_list = {
         let mut output = String::new();
-        for (ip,user) in messages {
+        for (ip, user) in messages {
             output.push_str(&format!("[{}]:<br>", ip));
             user.messages.iter().for_each(|message| {
                 let escaped = html_escape::encode_safe(&message.text);
-                output.push_str(&format!("{} : {} <br>", message.time_stamp,escaped));
+                let hashed = {
+                    match message.user_hash {
+                        None => "",
+                        Some(_) => "#",
+                    }
+                };
+                output.push_str(&format!(
+                    "{} :{}: {} <br>",
+                    message.time_stamp, hashed, escaped
+                ));
             });
         }
         output
     };
+    let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
 
     RawHtml(
         html! {
             p {"you are an admin!"}
+            (PreEscaped(back_button))
+            br;
+            br;
             (PreEscaped(message_list))
+
+
         }
         .into_string(),
     )

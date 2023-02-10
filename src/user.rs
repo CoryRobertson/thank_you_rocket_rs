@@ -2,6 +2,7 @@ use crate::message::{Message, NewMessage};
 use crate::POST_COOLDOWN;
 use chrono::Utc;
 use rocket::form::Form;
+use rocket::http::Cookie;
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
@@ -31,11 +32,18 @@ impl User {
         }
     }
     /// Add a new message to a user, and update their last time of posting
-    pub(crate) fn push(&mut self, msg: String) {
+    pub(crate) fn push(&mut self, msg: String, hash: Option<&Cookie>) {
         let time = Utc::now();
+
         let message: Message = Message {
             text: msg,
             time_stamp: time,
+            user_hash: {
+                match hash {
+                    None => None,
+                    Some(cookie) => Some(cookie.value().to_string()),
+                }
+            },
         };
         self.messages.push(message);
         self.last_time_post = SystemTime::now();

@@ -5,6 +5,7 @@ use crate::TYRState;
 use crate::{MESSAGE_LENGTH_CAP, MESSAGE_LENGTH_MIN};
 use chrono::Utc;
 use rocket::form::Form;
+use rocket::http::CookieJar;
 use rocket::response::Redirect;
 use rocket::State;
 use std::net::SocketAddr;
@@ -15,6 +16,7 @@ pub fn submit_message(
     message: Form<NewMessage>,
     req: SocketAddr,
     messages: &State<TYRState>,
+    jar: &CookieJar,
 ) -> Redirect {
     let user_ip = &req.ip().to_string();
 
@@ -55,11 +57,12 @@ pub fn submit_message(
                 let msg = Message {
                     text: message.msg.to_string(),
                     time_stamp: Utc::now(),
+                    user_hash: None,
                 }; // message object used for pushing to the user
                 lock.insert(user_ip.to_string(), User::new(msg)); // insert the new vector with the key of the users ip address
             }
             Some(user) => {
-                user.push(message.msg.to_string()); // push their new message, this also updates their last time of posting
+                user.push(message.msg.to_string(), jar.get("login")); // push their new message, this also updates their last time of posting
             }
         };
     } // block for locking the message block in write mode.
