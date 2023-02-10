@@ -22,7 +22,7 @@ pub struct TYRState {
     pub admin_state: Arc<RwLock<AdminState>>,
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize, Clone, Debug)]
 pub struct AdminState {
     pub admin_created: bool,
     pub admin_hashes: Vec<String>,
@@ -36,6 +36,28 @@ impl Default for TYRState {
             banned_ips: vec![],
             admin_state: Arc::from(RwLock::from(AdminState::default())),
         }
+    }
+}
+
+/// Returns a working admin state, could be default if save didnt exist, or is the saved copy.
+pub fn load_admin_state() -> AdminState {
+    // if admin state save exists, read it,  else return default
+    if let Ok(mut file) = File::open("./output/admin_state.ser") {
+        let mut file_content = String::new();
+        // read state to string, if its valid return the admin state that we read.
+        if file.read_to_string(&mut file_content).is_ok() {
+            let deser: AdminState = serde_json::from_str(&file_content).unwrap_or_default();
+            return deser;
+        }
+    }
+    AdminState::default()
+}
+
+impl AdminState {
+    pub fn save_admin_state(&self) {
+        let ser = serde_json::to_string(self).unwrap();
+        let mut file = File::create("./output/admin_state.ser").unwrap();
+        file.write_all(ser.as_ref()).unwrap();
     }
 }
 

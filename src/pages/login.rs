@@ -1,9 +1,7 @@
-use std::fs::File;
-use std::io::{Read, Write};
 use crate::state_management::TYRState;
-use argon2::password_hash::rand_core::{OsRng};
-use argon2::{Argon2, PasswordHasher};
+use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::SaltString;
+use argon2::{Argon2, PasswordHasher};
 use lazy_static::lazy_static;
 use rocket::form::Form;
 use rocket::http::{Cookie, CookieJar, SameSite};
@@ -11,6 +9,8 @@ use rocket::request::{FromRequest, Outcome};
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
 use rocket::{Request, State};
+use std::fs::File;
+use std::io::{Read, Write};
 
 lazy_static! {
     pub static ref SALT: String = {
@@ -19,22 +19,21 @@ lazy_static! {
                 let mut salt = String::new();
                 file.read_to_string(&mut salt).unwrap();
                 salt
-            },
+            }
             Err(_) => {
                 let mut rng = OsRng::default();
                 let salt_string = SaltString::generate(&mut rng);
 
                 let mut file = File::create("./salt.key").unwrap();
-                file.write(&salt_string.as_bytes()).unwrap();
+                let _ = file.write(salt_string.as_bytes()).unwrap();
                 salt_string.to_string()
-            },
+            }
         }
     };
 }
 
 #[get("/login")]
 pub fn login() -> RawHtml<String> {
-
     RawHtml(
         r#"
     <html lang="en">
@@ -83,8 +82,8 @@ pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState
         .hash_password(password.password.as_bytes(), salt.as_str())
         .unwrap();
 
-    let cookie = Cookie::build("login", hash_password.hash.unwrap().to_string())
-        .same_site(SameSite::Strict);
+    let cookie =
+        Cookie::build("login", hash_password.hash.unwrap().to_string()).same_site(SameSite::Strict);
     jar.add(cookie.finish());
 
     let admin_exists: bool = { state.admin_state.read().unwrap().admin_created }; // state for if an admin exists

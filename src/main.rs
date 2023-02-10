@@ -13,6 +13,7 @@ use crate::pages::submit_message::submit_message;
 use crate::pages::view::view;
 use crate::state_management::load_messages;
 use crate::state_management::*;
+use rocket::fairing::AdHoc;
 use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
 use std::fs::File;
@@ -95,10 +96,10 @@ fn rocket() -> Rocket<Build> {
         // TODO: if metrics are needed on any pages, clone the arc that is here into the state before we build the rocket.
     };
 
-    println!("Loaded banned ips: {:?}", state.banned_ips);
+    let admin_state_arc_save = state.admin_state.clone();
+    let admin_state_arc_load = state.admin_state.clone();
 
-    #[cfg(debug_assertions)]
-    println!("SALT {:?}",pages::login::SALT.as_str());
+    println!("Loaded banned ips: {:?}", state.banned_ips);
 
     rocket::build()
         .manage(state)
@@ -129,4 +130,20 @@ fn rocket() -> Rocket<Build> {
             FileServer::from("./discreet_math_fib_dist"),
         ) // program crashes if static folder does not exist.
         .attach(metrics_fairing)
+        .attach(AdHoc::on_ignite("Admin load save", |rocket| {
+            Box::pin(async move {
+                println!("Loading admin state from file system.");
+                let admin_state = admin_state_arc_load;
+                let load_admin_state = load_admin_state();
+                *admin_state.write().unwrap() = load_admin_state;
+                rocket
+            })
+        }))
+        .attach(AdHoc::on_shutdown("Admin shutdown save", |_| {
+            Box::pin(async move {
+                println!("Saving admin state to file system.");
+                let admin_state = admin_state_arc_save;
+                admin_state.read().unwrap().save_admin_state();
+            })
+        }))
 }
