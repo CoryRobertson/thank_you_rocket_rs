@@ -39,6 +39,7 @@ impl<'r> FromRequest<'r> for IsAdminGuard {
                 .admin_hashes
                 .contains(&login_cookie.value().to_string())
             {
+                // if the login cookie hash is one of the admin hashes, allow the user to proceed.
                 return Outcome::Success(IsAdminGuard::default());
             }
         }
@@ -78,8 +79,6 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
             br;
             br;
             (PreEscaped(message_list))
-
-
         }
         .into_string(),
     )
