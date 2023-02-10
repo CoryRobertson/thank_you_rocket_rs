@@ -67,8 +67,6 @@ pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState
         .hash_password(password.password.as_bytes(), "ABFDABFDABFDABFD")
         .unwrap();
 
-    // println!("Password: {}", password.password);
-    // println!("Hash: {}", hash_password.hash.unwrap());
     let cookie = Cookie::build("login", hash_password.hash.unwrap().to_string())
         .secure(true)
         .same_site(SameSite::Strict);

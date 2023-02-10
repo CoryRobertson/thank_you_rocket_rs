@@ -16,7 +16,7 @@
 // potentially put all of this in some module, but maybe not?
 
 use crate::state_management::TYRState;
-use maud::html;
+use maud::{html, PreEscaped};
 use rocket::outcome::Outcome;
 use rocket::request::FromRequest;
 use rocket::response::content::RawHtml;
@@ -52,10 +52,25 @@ impl<'r> FromRequest<'r> for IsAdminGuard {
 }
 
 #[get("/admin")]
-pub fn admin(_is_admin: IsAdminGuard, _state: &State<TYRState>) -> RawHtml<String> {
+pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
+
+    let messages = state.messages.read().unwrap().clone();
+    let message_list = {
+        let mut output = String::new();
+        for (ip,user) in messages {
+            output.push_str(&format!("[{}]:<br>", ip));
+            user.messages.iter().for_each(|message| {
+                let escaped = html_escape::encode_safe(&message.text);
+                output.push_str(&format!("{} : {} <br>", message.time_stamp,escaped));
+            });
+        }
+        output
+    };
+
     RawHtml(
         html! {
             p {"you are an admin!"}
+            (PreEscaped(message_list))
         }
         .into_string(),
     )

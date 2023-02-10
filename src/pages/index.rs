@@ -7,6 +7,7 @@ use rocket::http::CookieJar;
 use rocket::response::content::RawHtml;
 use rocket::State;
 use std::net::SocketAddr;
+use rocket::form::validate::Contains;
 use crate::pages::login::login;
 
 #[get("/")]
@@ -18,14 +19,23 @@ pub fn index(_req: SocketAddr, state: &State<TYRState>, jar: &CookieJar) -> RawH
         return login();
     } // if no admin exists, force the first user to login.
 
+    let is_admin;
+
     let version_number_test = format!("v{}", VERSION.unwrap_or("UNKNOWN VERSION"));
 
     let login_info: String = match jar.get("login") {
         None => {
+            is_admin = false;
             format!("Not logged in.")
         }
-        Some(_) => {
-            format!("Logged in")
+        Some(logged_in_cookie) => {
+            is_admin = state.admin_state.read().unwrap().admin_hashes.contains(logged_in_cookie.value().to_string());
+            if is_admin {
+                format!("Logged in as admin.")
+            } else {
+                format!("Logged in.")
+            }
+
         }
     };
 
@@ -44,7 +54,10 @@ pub fn index(_req: SocketAddr, state: &State<TYRState>, jar: &CookieJar) -> RawH
         br;
         a href="/logout" {"logout"}
         br;
-
+        br;
+        @if is_admin {
+            a href="/admin" {"Admin Panel"}
+        }
         p { (login_info) }
 
         (PreEscaped("<button onclick=\"window.location.href=\'/new\';\">Write a message</button>"))
