@@ -38,12 +38,7 @@ impl User {
         let message: Message = Message {
             text: msg,
             time_stamp: time,
-            user_hash: {
-                match hash {
-                    None => None,
-                    Some(cookie) => Some(cookie.value().to_string()),
-                }
-            },
+            user_hash: { hash.map(|cookie| cookie.value().to_string()) },
         };
         self.messages.push(message);
         self.last_time_post = SystemTime::now();

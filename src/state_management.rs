@@ -22,18 +22,10 @@ pub struct TYRState {
     pub admin_state: Arc<RwLock<AdminState>>,
 }
 
+#[derive(Default)]
 pub struct AdminState {
     pub admin_created: bool,
     pub admin_hashes: Vec<String>,
-}
-
-impl Default for AdminState {
-    fn default() -> Self {
-        AdminState {
-            admin_created: false,
-            admin_hashes: vec![],
-        }
-    }
 }
 
 impl Default for TYRState {

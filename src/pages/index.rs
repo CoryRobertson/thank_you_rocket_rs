@@ -26,7 +26,7 @@ pub fn index(_req: SocketAddr, state: &State<TYRState>, jar: &CookieJar) -> RawH
     let login_info: String = match jar.get("login") {
         None => {
             is_admin = false;
-            format!("Not logged in.")
+            "Not logged in.".to_string()
         }
         Some(logged_in_cookie) => {
             is_admin = state
@@ -36,9 +36,9 @@ pub fn index(_req: SocketAddr, state: &State<TYRState>, jar: &CookieJar) -> RawH
                 .admin_hashes
                 .contains(logged_in_cookie.value().to_string());
             if is_admin {
-                format!("Logged in as admin.")
+                "Logged in as admin.".to_string()
             } else {
-                format!("Logged in.")
+                "Logged in.".to_string()
             }
         }
     };

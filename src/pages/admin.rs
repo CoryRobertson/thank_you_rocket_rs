@@ -22,13 +22,8 @@ use rocket::request::FromRequest;
 use rocket::response::content::RawHtml;
 use rocket::{request, Request, State};
 
+#[derive(Default)]
 pub struct IsAdminGuard;
-
-impl Default for IsAdminGuard {
-    fn default() -> Self {
-        IsAdminGuard {}
-    }
-}
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for IsAdminGuard {
@@ -57,7 +52,7 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
     let message_list = {
         let mut output = String::new();
         for (ip, user) in messages {
-            output.push_str(&format!("[{}]:<br>", ip));
+            output.push_str(&format!("[{ip}]:<br>"));
             user.messages.iter().for_each(|message| {
                 let escaped = html_escape::encode_safe(&message.text);
                 let hashed = {
