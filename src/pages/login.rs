@@ -5,9 +5,10 @@ use argon2::{Argon2, PasswordHasher};
 use lazy_static::lazy_static;
 use rocket::form::Form;
 use rocket::http::{Cookie, CookieJar, SameSite};
+use rocket::request::{FromRequest, Outcome};
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
-use rocket::State;
+use rocket::{Request, State};
 
 lazy_static! {
     // probably not best practice, but a lazy static salt at run time seems like an ok idea for now.
@@ -82,4 +83,20 @@ pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState
     }
 
     Redirect::to(uri!("/"))
+}
+
+#[derive(Default)]
+pub struct IsLoggedInGuard;
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for IsLoggedInGuard {
+    type Error = ();
+
+    async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        if req.cookies().get("login").is_some() {
+            Outcome::Success(IsLoggedInGuard::default())
+        } else {
+            Outcome::Forward(())
+        }
+    }
 }

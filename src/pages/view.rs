@@ -36,7 +36,8 @@ pub fn view(req: SocketAddr, state: &State<TYRState>, jar: &CookieJar) -> RawHtm
                 None => {}
                 Some(user) => {
                     for message in &user.messages {
-                        if message.user_hash.is_none() { // render all messages that this ip sent that don't have a hash.
+                        if message.user_hash.is_none() {
+                            // render all messages that this ip sent that don't have a hash.
                             let escaped = html_escape::encode_safe(&message.text);
                             string_list.push_str(&format!("{escaped}<br>"));
                         }
