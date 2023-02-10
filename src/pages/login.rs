@@ -1,7 +1,9 @@
+use std::fs::File;
+use std::io::{Read, Write};
 use crate::state_management::TYRState;
-use argon2::password_hash::rand_core::OsRng;
-use argon2::password_hash::SaltString;
+use argon2::password_hash::rand_core::{OsRng};
 use argon2::{Argon2, PasswordHasher};
+use argon2::password_hash::SaltString;
 use lazy_static::lazy_static;
 use rocket::form::Form;
 use rocket::http::{Cookie, CookieJar, SameSite};
@@ -11,15 +13,28 @@ use rocket::response::Redirect;
 use rocket::{Request, State};
 
 lazy_static! {
-    // probably not best practice, but a lazy static salt at run time seems like an ok idea for now.
-    // later down the road, this will invalidate all passwords every time the website resets, which will probably not be good.
-    // maybe use a const rng system to generate some random strings as a salt?
-    static ref SALT: SaltString = SaltString::generate(&mut OsRng);
+    pub static ref SALT: String = {
+        match File::open("./salt.key") {
+            Ok(mut file) => {
+                let mut salt = String::new();
+                file.read_to_string(&mut salt).unwrap();
+                salt
+            },
+            Err(_) => {
+                let mut rng = OsRng::default();
+                let salt_string = SaltString::generate(&mut rng);
+
+                let mut file = File::create("./salt.key").unwrap();
+                file.write(&salt_string.as_bytes()).unwrap();
+                salt_string.to_string()
+            },
+        }
+    };
 }
 
 #[get("/login")]
 pub fn login() -> RawHtml<String> {
-    // TODO: hide password when typed
+
     RawHtml(
         r#"
     <html lang="en">
@@ -33,7 +48,7 @@ pub fn login() -> RawHtml<String> {
             <form action="/login" method="post">
                 <label for="password">Enter password</label>
                 <br>
-                <input type="text" name="password" id="password">
+                <input type="password" name="password" id="password">
                 <input type="submit" value="Submit password">
             </form>
         </body>
@@ -63,13 +78,12 @@ pub fn logout(jar: &CookieJar) -> Redirect {
 #[post("/login", data = "<password>")]
 pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState>) -> Redirect {
     let a2 = Argon2::default();
-    // at the moment, salt is insecure, fix later FIXME
+    let salt = &SALT;
     let hash_password = a2
-        .hash_password(password.password.as_bytes(), "ABFDABFDABFDABFD")
+        .hash_password(password.password.as_bytes(), salt.as_str())
         .unwrap();
 
     let cookie = Cookie::build("login", hash_password.hash.unwrap().to_string())
-        .secure(true)
         .same_site(SameSite::Strict);
     jar.add(cookie.finish());
 

@@ -49,7 +49,10 @@ fn rocket() -> Rocket<Build> {
     // using this return type isn't shown in the documentation from my minimal looking, but makes intellij happy.
 
     let load = load_messages();
+
+    #[cfg(debug_assertions)]
     println!("Loaded message data: {:?}", load.messages);
+
     let state = TYRState {
         messages: Arc::new(RwLock::new(load.messages)),
         banned_ips: {
@@ -93,6 +96,9 @@ fn rocket() -> Rocket<Build> {
     };
 
     println!("Loaded banned ips: {:?}", state.banned_ips);
+
+    #[cfg(debug_assertions)]
+    println!("SALT {:?}",pages::login::SALT.as_str());
 
     rocket::build()
         .manage(state)
