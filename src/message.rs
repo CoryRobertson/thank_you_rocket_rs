@@ -1,10 +1,9 @@
+use crate::state_management::TYRState;
 use chrono::serde::ts_seconds;
 use chrono::{DateTime, Utc};
 use rocket::State;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
-use crate::state_management::TYRState;
-
 
 #[derive(FromForm, Debug, Clone)]
 /// Form struct for a message
@@ -19,8 +18,6 @@ pub struct Message {
     #[serde(with = "ts_seconds")]
     pub time_stamp: DateTime<Utc>,
 }
-
-
 
 /// A function that outputs a vector of all the messages sent by a given ip address
 pub fn get_message_list_from_ip(req: &SocketAddr, messages: &State<TYRState>) -> Vec<String> {

@@ -2,9 +2,8 @@
 #[macro_use]
 extern crate rocket;
 
-use crate::state_management::*;
-use crate::pages::admin::admin;
 use crate::metrics::Metrics;
+use crate::pages::admin::*;
 use crate::pages::error_catch_pages::not_found;
 use crate::pages::index::index;
 use crate::pages::login::*;
@@ -13,6 +12,7 @@ use crate::pages::outcome_pages::*;
 use crate::pages::submit_message::submit_message;
 use crate::pages::view::view;
 use crate::state_management::load_messages;
+use crate::state_management::*;
 use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
 use std::fs::File;

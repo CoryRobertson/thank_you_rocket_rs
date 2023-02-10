@@ -1,3 +1,4 @@
+use crate::state_management::TYRState;
 use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHasher};
@@ -7,7 +8,6 @@ use rocket::http::{Cookie, CookieJar, SameSite};
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
 use rocket::State;
-use crate::state_management::TYRState;
 
 lazy_static! {
     // probably not best practice, but a lazy static salt at run time seems like an ok idea for now.
@@ -69,19 +69,18 @@ pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState
 
     // println!("Password: {}", password.password);
     // println!("Hash: {}", hash_password.hash.unwrap());
-    let cookie = Cookie::build("login",hash_password.hash.unwrap().to_string())
+    let cookie = Cookie::build("login", hash_password.hash.unwrap().to_string())
         .secure(true)
         .same_site(SameSite::Strict);
     jar.add(cookie.finish());
 
-    let admin_exists: bool = {
-        state.admin_state.read().unwrap().admin_created
-    }; // state for if an admin exists
+    let admin_exists: bool = { state.admin_state.read().unwrap().admin_created }; // state for if an admin exists
 
     if !admin_exists {
         let mut lock = state.admin_state.write().unwrap();
         lock.admin_created = true;
-        lock.admin_hashes.push(hash_password.hash.unwrap().to_string());
+        lock.admin_hashes
+            .push(hash_password.hash.unwrap().to_string());
     }
 
     Redirect::to(uri!("/"))

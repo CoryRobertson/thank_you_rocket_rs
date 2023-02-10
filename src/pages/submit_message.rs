@@ -1,7 +1,7 @@
 use crate::message::{Message, NewMessage};
-use crate::TYRState;
 use crate::state_management::save_messages;
 use crate::user::User;
+use crate::TYRState;
 use crate::{MESSAGE_LENGTH_CAP, MESSAGE_LENGTH_MIN};
 use chrono::Utc;
 use rocket::form::Form;

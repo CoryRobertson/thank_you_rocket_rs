@@ -29,7 +29,10 @@ pub struct AdminState {
 
 impl Default for AdminState {
     fn default() -> Self {
-        AdminState{ admin_created: false, admin_hashes: vec![] }
+        AdminState {
+            admin_created: false,
+            admin_hashes: vec![],
+        }
     }
 }
 

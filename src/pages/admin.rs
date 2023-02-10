@@ -15,12 +15,48 @@
 // the admins password -> if cookie is correct, let them in, if not, redirect them somewhere else or just 404 them or something.
 // potentially put all of this in some module, but maybe not?
 
+use crate::state_management::TYRState;
 use maud::html;
+use rocket::outcome::Outcome;
+use rocket::request::FromRequest;
 use rocket::response::content::RawHtml;
+use rocket::{request, Request, State};
+
+pub struct IsAdminGuard;
+
+impl Default for IsAdminGuard {
+    fn default() -> Self {
+        IsAdminGuard {}
+    }
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for IsAdminGuard {
+    type Error = ();
+
+    async fn from_request(req: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
+        if let Some(login_cookie) = req.cookies().get("login") {
+            let outcome: &State<TYRState> = req.guard::<&State<TYRState>>().await.unwrap();
+            if outcome
+                .admin_state
+                .read()
+                .unwrap()
+                .admin_hashes
+                .contains(&login_cookie.value().to_string())
+            {
+                return Outcome::Success(IsAdminGuard::default());
+            }
+        }
+        Outcome::Forward(())
+    }
+}
 
 #[get("/admin")]
-pub fn admin() -> RawHtml<String> {
-    RawHtml(html! {
-        p {"you are an admin!"}
-    }.into_string())
+pub fn admin(_is_admin: IsAdminGuard, _state: &State<TYRState>) -> RawHtml<String> {
+    RawHtml(
+        html! {
+            p {"you are an admin!"}
+        }
+        .into_string(),
+    )
 }

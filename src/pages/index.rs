@@ -3,29 +3,24 @@ use crate::VERSION;
 use maud::html;
 use maud::PreEscaped;
 use maud::DOCTYPE;
-use rocket::http::{CookieJar};
+use rocket::http::CookieJar;
 use rocket::response::content::RawHtml;
 use rocket::State;
 use std::net::SocketAddr;
 
 #[get("/")]
 /// Base page that the web page loads to, contains buttons that take you to various other pages.
-pub fn index(
-    _req: SocketAddr,
-    _messages: &State<TYRState>,
-    jar: &CookieJar,
-) -> RawHtml<String> {
+pub fn index(_req: SocketAddr, _messages: &State<TYRState>, jar: &CookieJar) -> RawHtml<String> {
     // TODO: make these links for buttons open in a new tab, not in current tab.
 
     let version_number_test = format!("v{}", VERSION.unwrap_or("UNKNOWN VERSION"));
-
 
     let login_info: String = match jar.get("login") {
         None => {
             format!("Not logged in.")
         }
-        Some(login_cookie) => {
-            format!("Logged in, hash: {}", login_cookie.value())
+        Some(_) => {
+            format!("Logged in")
         }
     };
 
@@ -41,7 +36,6 @@ pub fn index(
         br;
         br;
         a href="/logout" {"logout"}
-        br;
         br;
 
         p { (login_info) }
