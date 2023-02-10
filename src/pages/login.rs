@@ -86,7 +86,7 @@ pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState
 }
 
 #[derive(Default)]
-pub struct IsLoggedInGuard;
+pub struct IsLoggedInGuard; // TODO: return the cookie hash if this guard succeeds.
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for IsLoggedInGuard {
