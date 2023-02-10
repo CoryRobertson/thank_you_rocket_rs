@@ -7,11 +7,16 @@ use rocket::http::CookieJar;
 use rocket::response::content::RawHtml;
 use rocket::State;
 use std::net::SocketAddr;
+use crate::pages::login::login;
 
 #[get("/")]
 /// Base page that the web page loads to, contains buttons that take you to various other pages.
-pub fn index(_req: SocketAddr, _messages: &State<TYRState>, jar: &CookieJar) -> RawHtml<String> {
+pub fn index(_req: SocketAddr, state: &State<TYRState>, jar: &CookieJar) -> RawHtml<String> {
     // TODO: make these links for buttons open in a new tab, not in current tab.
+
+    if !state.admin_state.read().unwrap().admin_created {
+        return login();
+    } // if no admin exists, force the first user to login.
 
     let version_number_test = format!("v{}", VERSION.unwrap_or("UNKNOWN VERSION"));
 
@@ -23,6 +28,8 @@ pub fn index(_req: SocketAddr, _messages: &State<TYRState>, jar: &CookieJar) -> 
             format!("Logged in")
         }
     };
+
+
 
     RawHtml(html! {
         (DOCTYPE)
