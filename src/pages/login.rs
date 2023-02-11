@@ -14,7 +14,7 @@ use std::io::{Read, Write};
 
 lazy_static! {
     pub static ref SALT: String = {
-        match File::open("./salt.key") {
+        match File::open("./output/salt.key") {
             Ok(mut file) => {
                 let mut salt = String::new();
                 file.read_to_string(&mut salt).unwrap();
@@ -24,7 +24,7 @@ lazy_static! {
                 let mut rng = OsRng::default();
                 let salt_string = SaltString::generate(&mut rng);
 
-                let mut file = File::create("./salt.key").unwrap();
+                let mut file = File::create("./output/salt.key").unwrap();
                 let _ = file.write(salt_string.as_bytes()).unwrap();
                 salt_string.to_string()
             }

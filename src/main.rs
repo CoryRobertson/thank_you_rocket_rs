@@ -99,6 +99,8 @@ fn rocket() -> Rocket<Build> {
     let admin_state_arc_save = state.admin_state.clone();
     let admin_state_arc_load = state.admin_state.clone();
 
+    println!("Salt: {}", pages::login::SALT.as_str());
+
     println!("Loaded banned ips: {:?}", state.banned_ips);
 
     rocket::build()
