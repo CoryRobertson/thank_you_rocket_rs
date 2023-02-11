@@ -54,7 +54,7 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
         output
     };
     let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
-
+    // TODO: add text field for admin to ban ip addresses
     RawHtml(
         html! {
             p {"you are an admin!"}

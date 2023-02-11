@@ -22,7 +22,6 @@ COPY --from=builder /rhythm_rs_dist ./rhythm_rs_dist
 COPY --from=builder /static ./static
 # copy rocket toml from builder into image.
 COPY --from=builder /Rocket.toml .
-# copy salt from previous run if exists.
 
 EXPOSE 80
 VOLUME ["/output"]
