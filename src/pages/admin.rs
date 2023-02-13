@@ -55,6 +55,7 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
     };
     let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
     // TODO: add text field for admin to ban ip addresses
+    // TODO: add ip input field for admin resetting cooldown for a given ip address, should probably just set their last post time to unix epoch? or possibly set a boolean on their user?
     RawHtml(
         html! {
             p {"you are an admin!"}
