@@ -78,7 +78,9 @@ fn rocket() -> Rocket<Build> {
                 vec![]
             }
         },
-        admin_state: Arc::new(RwLock::new(load_admin_state(&PathBuf::from("./output/admin_state.ser")).unwrap_or_default())),
+        admin_state: Arc::new(RwLock::new(
+            load_admin_state(&PathBuf::from("./output/admin_state.ser")).unwrap_or_default(),
+        )),
     };
 
     let metrics_fairing: Metrics = Metrics {
@@ -126,7 +128,10 @@ fn rocket() -> Rocket<Build> {
             Box::pin(async move {
                 println!("Saving admin state to file system.");
                 let admin_state = admin_state_arc_save;
-                admin_state.read().unwrap().save_admin_state(&PathBuf::from("./output/admin_state.ser"));
+                admin_state
+                    .read()
+                    .unwrap()
+                    .save_admin_state(&PathBuf::from("./output/admin_state.ser"));
             })
         }))
 }

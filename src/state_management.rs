@@ -41,7 +41,7 @@ impl Default for TYRState {
 }
 
 /// Returns a working admin state, could be default if save didnt exist, or is the saved copy.
-pub fn load_admin_state(path: &PathBuf) -> Result<AdminState,()> {
+pub fn load_admin_state(path: &PathBuf) -> Result<AdminState, ()> {
     // if admin state save exists, read it,  else return default
     if let Ok(mut file) = File::open(path) {
         let mut file_content = String::new();
