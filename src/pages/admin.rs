@@ -6,7 +6,7 @@ use rocket::response::content::RawHtml;
 use rocket::{request, Request, State};
 
 #[derive(Default)]
-pub struct IsAdminGuard;
+pub struct IsAdminGuard; // TODO: return the cookie hash if this guard succeeds.
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for IsAdminGuard {
