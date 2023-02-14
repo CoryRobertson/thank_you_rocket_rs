@@ -19,7 +19,9 @@ use rocket::{Build, Rocket};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::{Arc, Mutex, RwLock};
+use crate::common::is_ip_valid;
 
+mod common;
 mod message;
 mod metrics;
 mod pages;
@@ -69,17 +71,7 @@ fn rocket() -> Rocket<Build> {
                         }
                     })
                     .filter(|line| {
-                        // check that there are 4 valid u8 numbers in the ip address
-                        // 1.2.3.4 1111.2222.3333.4444
-                        // possible inputs, only the left one should be considered possibly valid.
-                        let num_len_valid: Vec<&str> = line
-                            .split('.') // split the line given by its periods
-                            .filter(|num_split| {
-                                // only keep lines that are possible to be parsed into a 8u
-                                num_split.parse::<u8>().is_ok()
-                            })
-                            .collect();
-                        num_len_valid.len() == 4 // there needs to be exactly 4 valid u8 numbers to allow this given line to be kept.
+                        is_ip_valid(line)
                     })
                     .collect();
                 lines
