@@ -99,15 +99,15 @@ pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState
 }
 
 #[derive(Default)]
-pub struct IsLoggedInGuard; // TODO: return the cookie hash if this guard succeeds.
+pub struct IsLoggedInGuard(String);
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for IsLoggedInGuard {
     type Error = ();
 
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        if req.cookies().get("login").is_some() {
-            Outcome::Success(IsLoggedInGuard::default())
+        if let Some(login_cookie) = req.cookies().get("login") {
+            Outcome::Success(IsLoggedInGuard(login_cookie.value().to_string()))
         } else {
             Outcome::Forward(())
         }

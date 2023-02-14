@@ -20,7 +20,7 @@ use rocket::{Build, Rocket};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 mod common;
 mod message;
@@ -81,11 +81,13 @@ fn rocket() -> Rocket<Build> {
         admin_state: Arc::new(RwLock::new(
             load_admin_state(&PathBuf::from("./output/admin_state.ser")).unwrap_or_default(),
         )),
+
+        unique_users: Arc::new(RwLock::new(Default::default())),
     };
 
     let metrics_fairing: Metrics = Metrics {
         banned_ips: state.banned_ips.clone(),
-        unique_users: Arc::new(Mutex::new(Default::default())),
+        unique_users: state.unique_users.clone(),
         // TODO: if metrics are needed on any pages, clone the arc that is here into the state before we build the rocket.
     };
 
@@ -114,6 +116,7 @@ fn rocket() -> Rocket<Build> {
                 login_post,
                 logout,
                 admin,
+                admin_metrics,
             ],
         )
         .register("/", catchers![not_found])

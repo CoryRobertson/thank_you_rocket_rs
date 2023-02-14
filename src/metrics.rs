@@ -7,14 +7,14 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 /// A struct that can contain things we take metrics on, at the moment it only contains the list of banned ips, but will eventually keep track of how many people have view the page for example
 /// Or even keeping a how many unique users have viewed the page.
 pub struct Metrics {
     pub banned_ips: Vec<String>,
 
-    pub unique_users: Arc<Mutex<HashMap<String, UserMetric>>>,
+    pub unique_users: Arc<RwLock<HashMap<String, UserMetric>>>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -27,7 +27,7 @@ struct SerializableMetrics {
 impl Metrics {
     /// Serialized users to a file, saving it to ./output/metrics.ser
     fn serialize_users(&self, path: &PathBuf) -> File {
-        let users = self.unique_users.lock().unwrap().clone();
+        let users = self.unique_users.read().unwrap().clone();
         let users: SerializableMetrics = SerializableMetrics {
             request_count: users.iter().map(|user| user.1.request_count).sum(),
             users,
@@ -50,7 +50,7 @@ impl Metrics {
                 // only continue if we can read the file into a string, and successfully deserialize the file content.
                 if let Ok(unique_users) = serde_json::from_str::<SerializableMetrics>(&file_content)
                 {
-                    let mut lock = self.unique_users.lock().unwrap();
+                    let mut lock = self.unique_users.write().unwrap();
                     for (ip, user) in unique_users.users {
                         lock.insert(ip, user);
                     }
@@ -139,7 +139,7 @@ impl Fairing for Metrics {
                     return;
                 } else {
                     // if the user is not banned, then we do metrics on them.
-                    let mut lock = self.unique_users.lock().unwrap();
+                    let mut lock = self.unique_users.write().unwrap();
                     match lock.get_mut(&ip.ip().to_string()) {
                         None => {
                             lock.insert(ip.ip().to_string(), UserMetric { request_count: 1 });
@@ -161,7 +161,7 @@ impl Fairing for Metrics {
     /// On shutdown we save the unique users to file, and save their metrics in a pretty format to a file as well.
     async fn on_shutdown(&self, _rocket: &Rocket<Orbit>) {
         self.serialize_users(&PathBuf::from("./output/metrics.ser"));
-        let future = save_metrics(self.unique_users.lock().unwrap().clone());
+        let future = save_metrics(self.unique_users.read().unwrap().clone());
         future.await;
     }
 }
@@ -178,10 +178,10 @@ mod tests {
             // none of these matter, as the metrics serialized struct does not load this, instead it loads it through startup.
             banned_ips: vec!["1.23.45.67".to_string(), "98.67.54.32".to_string()],
 
-            unique_users: Arc::new(Mutex::new(Default::default())),
+            unique_users: Arc::new(RwLock::new(Default::default())),
         };
         {
-            let mut lock = metrics.unique_users.lock().unwrap();
+            let mut lock = metrics.unique_users.write().unwrap();
 
             lock.insert("44.55.66.77".to_string(), UserMetric { request_count: 3 });
             lock.insert("67.162.11.4".to_string(), UserMetric { request_count: 400 });
@@ -192,14 +192,14 @@ mod tests {
 
         let deser = Metrics {
             banned_ips: vec![],
-            unique_users: Arc::new(Mutex::new(Default::default())),
+            unique_users: Arc::new(RwLock::new(Default::default())),
         };
 
         deser.deserialize_metrics(&PathBuf::from("test_metrics_file.ser"));
 
         assert_eq!(
-            *metrics.unique_users.lock().unwrap(),
-            *deser.unique_users.lock().unwrap()
+            *metrics.unique_users.read().unwrap(),
+            *deser.unique_users.read().unwrap()
         );
 
         fs::remove_file("test_metrics_file.ser").expect("Unable to delete test metrics file");

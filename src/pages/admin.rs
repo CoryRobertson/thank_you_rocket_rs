@@ -6,7 +6,7 @@ use rocket::response::content::RawHtml;
 use rocket::{request, Request, State};
 
 #[derive(Default)]
-pub struct IsAdminGuard; // TODO: return the cookie hash if this guard succeeds.
+pub struct IsAdminGuard(String);
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for IsAdminGuard {
@@ -23,14 +23,43 @@ impl<'r> FromRequest<'r> for IsAdminGuard {
                 .contains(&login_cookie.value().to_string())
             {
                 // if the login cookie hash is one of the admin hashes, allow the user to proceed.
-                return Outcome::Success(IsAdminGuard::default());
+                return Outcome::Success(IsAdminGuard(login_cookie.value().to_string()));
             }
         }
         Outcome::Forward(())
     }
 }
 
-// TODO: display metrics on a new page maybe "/admin/metrics" or something like that
+#[get("/admin/metrics")]
+pub fn admin_metrics(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
+    let unique_users_lock = state.unique_users.read().unwrap();
+
+    let total_requests = unique_users_lock
+        .iter()
+        .map(|(_, user)| user.request_count)
+        .sum::<u64>();
+    let unique_users_count = unique_users_lock.len();
+
+    let metrics_string = {
+        let mut output = String::new();
+        for (ip, user_metric) in unique_users_lock.iter() {
+            output.push_str(&format!("[{}]: {} <br>", ip, user_metric.request_count));
+        }
+        output
+    };
+
+    let back_button = "<button onclick=\"window.location.href=\'/admin\';\">Go back</button>";
+
+    RawHtml(
+        html! {
+            (PreEscaped(back_button))
+            p { "Total requests: " (total_requests) }
+            p { "Unique users: " (unique_users_count) }
+            p { (PreEscaped(metrics_string)) }
+        }
+        .into_string(),
+    )
+}
 
 #[get("/admin")]
 pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
@@ -56,6 +85,8 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
         output
     };
     let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
+    let metrics_button =
+        "<button onclick=\"window.location.href=\'/admin/metrics\';\">Metrics</button>";
     // TODO: add text field for admin to ban ip addresses
     // TODO: add ip input field for admin resetting cooldown for a given ip address, should probably just set their last post time to unix epoch? or possibly set a boolean on their user?
 
@@ -63,6 +94,7 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
         html! {
             p {"you are an admin!"}
             (PreEscaped(back_button))
+            (PreEscaped(metrics_button))
             br;
             br;
             (PreEscaped(message_list))

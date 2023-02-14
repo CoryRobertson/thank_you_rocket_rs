@@ -1,3 +1,4 @@
+use crate::metrics::UserMetric;
 use crate::user::User;
 use crate::{RENDER_FILE_NAME, SERDE_FILE_NAME};
 use chrono::{DateTime, Datelike, Local, Timelike};
@@ -21,6 +22,7 @@ pub struct TYRState {
     pub messages: Arc<RwLock<HashMap<String, User>>>,
     pub banned_ips: Vec<String>, // vector full of all of the banned ips read from file at startup
     pub admin_state: Arc<RwLock<AdminState>>,
+    pub unique_users: Arc<RwLock<HashMap<String, UserMetric>>>,
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
@@ -37,6 +39,7 @@ impl Default for TYRState {
             messages: Arc::new(RwLock::new(HashMap::new())),
             banned_ips: vec![],
             admin_state: Arc::from(RwLock::from(AdminState::default())),
+            unique_users: Arc::new(Default::default()),
         }
     }
 }
