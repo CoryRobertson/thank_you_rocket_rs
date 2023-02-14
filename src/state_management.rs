@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 #[derive(Serialize, Deserialize)]
@@ -40,23 +41,24 @@ impl Default for TYRState {
 }
 
 /// Returns a working admin state, could be default if save didnt exist, or is the saved copy.
-pub fn load_admin_state() -> AdminState {
+pub fn load_admin_state(path: &PathBuf) -> Result<AdminState,()> {
     // if admin state save exists, read it,  else return default
-    if let Ok(mut file) = File::open("./output/admin_state.ser") {
+    if let Ok(mut file) = File::open(path) {
         let mut file_content = String::new();
         // read state to string, if its valid return the admin state that we read.
         if file.read_to_string(&mut file_content).is_ok() {
             let deser: AdminState = serde_json::from_str(&file_content).unwrap_or_default();
-            return deser;
+            return Ok(deser);
         }
     }
-    AdminState::default()
+    Err(())
 }
 
 impl AdminState {
-    pub fn save_admin_state(&self) {
+    /// Saves an admin state to file, serialized.
+    pub fn save_admin_state(&self, path: &PathBuf) {
         let ser = serde_json::to_string(self).unwrap();
-        let mut file = File::create("./output/admin_state.ser").unwrap();
+        let mut file = File::create(path).unwrap();
         file.write_all(ser.as_ref()).unwrap();
     }
 }

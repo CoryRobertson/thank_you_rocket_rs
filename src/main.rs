@@ -2,6 +2,7 @@
 #[macro_use]
 extern crate rocket;
 
+use crate::common::is_ip_valid;
 use crate::metrics::Metrics;
 use crate::pages::admin::*;
 use crate::pages::error_catch_pages::not_found;
@@ -18,8 +19,8 @@ use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
-use crate::common::is_ip_valid;
 
 mod common;
 mod message;
@@ -70,16 +71,14 @@ fn rocket() -> Rocket<Build> {
                             Err(_) => None,
                         }
                     })
-                    .filter(|line| {
-                        is_ip_valid(line)
-                    })
+                    .filter(|line| is_ip_valid(line))
                     .collect();
                 lines
             } else {
                 vec![]
             }
         },
-        admin_state: Default::default(),
+        admin_state: Arc::new(RwLock::new(load_admin_state(&PathBuf::from("./output/admin_state.ser")).unwrap_or_default())),
     };
 
     let metrics_fairing: Metrics = Metrics {
@@ -89,7 +88,6 @@ fn rocket() -> Rocket<Build> {
     };
 
     let admin_state_arc_save = state.admin_state.clone();
-    let admin_state_arc_load = state.admin_state.clone();
 
     println!("Salt: {}", pages::login::SALT.as_str());
 
@@ -124,20 +122,11 @@ fn rocket() -> Rocket<Build> {
             FileServer::from("./discreet_math_fib_dist"),
         ) // program crashes if static folder does not exist.
         .attach(metrics_fairing)
-        .attach(AdHoc::on_ignite("Admin load save", |rocket| {
-            Box::pin(async move {
-                println!("Loading admin state from file system.");
-                let admin_state = admin_state_arc_load;
-                let load_admin_state = load_admin_state();
-                *admin_state.write().unwrap() = load_admin_state;
-                rocket
-            })
-        }))
         .attach(AdHoc::on_shutdown("Admin shutdown save", |_| {
             Box::pin(async move {
                 println!("Saving admin state to file system.");
                 let admin_state = admin_state_arc_save;
-                admin_state.read().unwrap().save_admin_state();
+                admin_state.read().unwrap().save_admin_state(&PathBuf::from("./output/admin_state.ser"));
             })
         }))
 }
