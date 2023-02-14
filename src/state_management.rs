@@ -24,6 +24,7 @@ pub struct TYRState {
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
+/// A struct that stores if an admin has been created, and a vector of hashes of passwords that an admin can use to login.
 pub struct AdminState {
     pub admin_created: bool,
     pub admin_hashes: Vec<String>,
