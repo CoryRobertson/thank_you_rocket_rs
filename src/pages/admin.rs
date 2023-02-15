@@ -92,7 +92,9 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
     let metrics_button =
         "<button onclick=\"window.location.href=\'/admin/metrics\';\">Metrics</button>";
     let banned_ips = format!("{:?}", state.banned_ips.read().unwrap());
+
     // TODO: add ip input field for admin resetting cooldown for a given ip address, should probably just set their last post time to unix epoch? or possibly set a boolean on their user?
+    // TODO: Add a checkbox to the form that allows a given ip to be unbanned, defaulting to be checked if possible?
 
     RawHtml(
         html! {
