@@ -1,8 +1,11 @@
+use crate::common::is_ip_valid;
 use crate::state_management::TYRState;
 use maud::{html, PreEscaped};
+use rocket::form::Form;
 use rocket::outcome::Outcome;
 use rocket::request::FromRequest;
 use rocket::response::content::RawHtml;
+use rocket::response::Redirect;
 use rocket::{request, Request, State};
 
 #[derive(Default)]
@@ -87,12 +90,26 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
     let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
     let metrics_button =
         "<button onclick=\"window.location.href=\'/admin/metrics\';\">Metrics</button>";
-    // TODO: add text field for admin to ban ip addresses
+    let banned_ips = format!("{:?}", state.banned_ips.read().unwrap());
     // TODO: add ip input field for admin resetting cooldown for a given ip address, should probably just set their last post time to unix epoch? or possibly set a boolean on their user?
 
     RawHtml(
         html! {
             p {"you are an admin!"}
+            (PreEscaped(
+                r#"
+                <form action="/admin/ban_ip" method="post">
+                    <label for="ip">Enter ip</label>
+                    <br>
+                    <input type="text" name="ip" id="ip">
+                    <input type="submit" value="Submit Ip">
+                </form>
+                "#
+            ))
+            br;
+            (banned_ips)
+            br;
+            br;
             (PreEscaped(back_button))
             (PreEscaped(metrics_button))
             br;
@@ -101,4 +118,17 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
         }
         .into_string(),
     )
+}
+
+#[derive(FromForm, Debug, Clone)]
+pub struct Ip {
+    pub ip: String,
+}
+
+#[post("/admin/ban_ip", data = "<ip>")]
+pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) -> Redirect {
+    if is_ip_valid(&ip.ip) {
+        state.banned_ips.write().unwrap().push(ip.ip.clone());
+    }
+    Redirect::to(uri!("/admin"))
 }

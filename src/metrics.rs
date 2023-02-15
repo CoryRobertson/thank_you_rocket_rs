@@ -1,18 +1,17 @@
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::uri::Origin;
 use rocket::tokio::spawn;
-use rocket::{Build, Data, Orbit, Request, Response, Rocket};
+use rocket::{Data, Request, Response};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufWriter, Read, Write};
-use std::path::PathBuf;
+use std::io::{BufWriter, Write};
 use std::sync::{Arc, RwLock};
 
 /// A struct that can contain things we take metrics on, at the moment it only contains the list of banned ips, but will eventually keep track of how many people have view the page for example
 /// Or even keeping a how many unique users have viewed the page.
 pub struct Metrics {
-    pub banned_ips: Vec<String>,
+    pub banned_ips: Arc<RwLock<Vec<String>>>,
 
     pub unique_users: Arc<RwLock<HashMap<String, UserMetric>>>,
 }
@@ -22,56 +21,6 @@ pub struct Metrics {
 struct SerializableMetrics {
     request_count: u64,
     users: HashMap<String, UserMetric>,
-}
-
-impl Metrics {
-    /// Serialized users to a file, saving it to ./output/metrics.ser
-    fn serialize_users(&self, path: &PathBuf) -> File {
-        let users = self.unique_users.read().unwrap().clone();
-        let users: SerializableMetrics = SerializableMetrics {
-            request_count: users.iter().map(|user| user.1.request_count).sum(),
-            users,
-        };
-        let ser = serde_json::to_string(&users).unwrap();
-        let mut file = File::create(path).unwrap();
-        let _ = file
-            .write(ser.as_bytes())
-            .expect("Unable to write metrics to serializable file");
-        file
-    }
-
-    /// Deserializes metrics from a file, and modifies the unique users hashmap in metrics
-    fn deserialize_metrics(&self, path: &PathBuf) {
-        // only run function if metrics serialization file exists
-        if let Ok(mut file) = File::open(path) {
-            let mut file_content = String::new();
-            // only continue running function if we can successfully read the file content into a string.
-            if file.read_to_string(&mut file_content).is_ok() {
-                // only continue if we can read the file into a string, and successfully deserialize the file content.
-                if let Ok(unique_users) = serde_json::from_str::<SerializableMetrics>(&file_content)
-                {
-                    let mut lock = self.unique_users.write().unwrap();
-                    for (ip, user) in unique_users.users {
-                        lock.insert(ip, user);
-                    }
-                    // self.request_count.store(unique_users.request_count,Ordering::Relaxed);
-                } else {
-                    // unable to deserialize metrics file
-                    println!(
-                        "Unable to deserialize metrics file, a new metrics file will be created."
-                    );
-                }
-            } else {
-                // unable to read file to string
-                println!(
-                    "Unable to read metrics file to string, a new metrics file will be created."
-                );
-            }
-        } else {
-            // metrics file does not exist
-            println!("Metrics file does not exist, a new one will be created.");
-        }
-    }
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
@@ -115,15 +64,15 @@ impl Fairing for Metrics {
     fn info(&self) -> Info {
         Info {
             name: "Metrics",
-            kind: Kind::Request | Kind::Response | Kind::Ignite | Kind::Shutdown,
+            kind: Kind::Request | Kind::Response,
         }
     }
 
-    /// On ignite, we read the serialized users and input them into this metrics object.
-    async fn on_ignite(&self, rocket: Rocket<Build>) -> rocket::fairing::Result {
-        self.deserialize_metrics(&PathBuf::from("./output/metrics.ser"));
-        Ok(rocket)
-    }
+    // On ignite, we read the serialized users and input them into this metrics object.
+    // async fn on_ignite(&self, rocket: Rocket<Build>) -> rocket::fairing::Result {
+    //     self.deserialize_metrics(&PathBuf::from("./output/metrics.ser"));
+    //     Ok(rocket)
+    // }
 
     /// On request, we check the users ip, if it is banned, we change their uri to an error message.
     async fn on_request(&self, req: &mut Request<'_>, _data: &mut Data<'_>) {
@@ -133,7 +82,7 @@ impl Fairing for Metrics {
                 req.set_uri(Origin::try_from("/error_message").unwrap());
             }
             Some(ip) => {
-                if is_banned(&ip.ip().to_string(), &self.banned_ips) {
+                if is_banned(&ip.ip().to_string(), &self.banned_ips.read().unwrap()) {
                     // if the user has a valid ip, and is banned, direct them to an error page, and cease function activity.
                     req.set_uri(Origin::try_from("/error_message").unwrap());
                     return;
@@ -158,50 +107,11 @@ impl Fairing for Metrics {
         // unimplemented
     }
 
-    /// On shutdown we save the unique users to file, and save their metrics in a pretty format to a file as well.
-    async fn on_shutdown(&self, _rocket: &Rocket<Orbit>) {
-        self.serialize_users(&PathBuf::from("./output/metrics.ser"));
-        let future = save_metrics(self.unique_users.read().unwrap().clone());
-        future.await;
-    }
+    // On shutdown we save the unique users to file, and save their metrics in a pretty format to a file as well.
+    // async fn on_shutdown(&self, _rocket: &Rocket<Orbit>) {
+    //     self.serialize_users(&PathBuf::from("./output/metrics.ser"));
+    //     let future = save_metrics(self.unique_users.read().unwrap().clone());
+    //     future.await;
+    // }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-
-    #[test]
-    /// At the moment, the only assertion is that a metrics serialized struct will contain the same users
-    fn test_save_load_metrics() {
-        let metrics = Metrics {
-            // none of these matter, as the metrics serialized struct does not load this, instead it loads it through startup.
-            banned_ips: vec!["1.23.45.67".to_string(), "98.67.54.32".to_string()],
-
-            unique_users: Arc::new(RwLock::new(Default::default())),
-        };
-        {
-            let mut lock = metrics.unique_users.write().unwrap();
-
-            lock.insert("44.55.66.77".to_string(), UserMetric { request_count: 3 });
-            lock.insert("67.162.11.4".to_string(), UserMetric { request_count: 400 });
-            lock.insert("33.44.55.66".to_string(), UserMetric { request_count: 126 });
-        }
-
-        let _ = metrics.serialize_users(&PathBuf::from("test_metrics_file.ser"));
-
-        let deser = Metrics {
-            banned_ips: vec![],
-            unique_users: Arc::new(RwLock::new(Default::default())),
-        };
-
-        deser.deserialize_metrics(&PathBuf::from("test_metrics_file.ser"));
-
-        assert_eq!(
-            *metrics.unique_users.read().unwrap(),
-            *deser.unique_users.read().unwrap()
-        );
-
-        fs::remove_file("test_metrics_file.ser").expect("Unable to delete test metrics file");
-    }
-}

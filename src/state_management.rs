@@ -1,31 +1,47 @@
 use crate::metrics::UserMetric;
 use crate::user::User;
-use crate::{RENDER_FILE_NAME, SERDE_FILE_NAME};
 use chrono::{DateTime, Datelike, Local, Timelike};
+use rocket::State;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
-use std::path::PathBuf;
+use std::path::{PathBuf};
 use std::sync::{Arc, RwLock};
 
 #[derive(Serialize, Deserialize)]
 /// A serializable version of the TYRState struct, used only for saving.
 pub struct StateSave {
-    pub(crate) messages: HashMap<String, User>,
+    pub messages: HashMap<String, User>,
+    pub banned_ips: Option<Vec<String>>,
+    pub admin_state: Option<AdminState>,
+    pub unique_users: Option<HashMap<String, UserMetric>>,
 }
 
 /// The state struct for the rocket web frame work.
+#[derive(Debug, Clone)]
 pub struct TYRState {
     // hash map consists of the ip address as a key, and the user struct itself.
     pub messages: Arc<RwLock<HashMap<String, User>>>,
-    pub banned_ips: Vec<String>, // vector full of all of the banned ips read from file at startup
+    pub banned_ips: Arc<RwLock<Vec<String>>>, // vector full of all of the banned ips read from file at startup
     pub admin_state: Arc<RwLock<AdminState>>,
     pub unique_users: Arc<RwLock<HashMap<String, UserMetric>>>,
 }
 
-#[derive(Default, Serialize, Deserialize, Clone, Debug)]
+impl TYRState {
+    pub fn from_state_save(state_save: StateSave) -> Self {
+        TYRState{
+            messages: Arc::new(RwLock::new(state_save.messages)),
+            banned_ips: Arc::new(RwLock::new(state_save.banned_ips.unwrap_or_default())),
+            admin_state: Arc::new(RwLock::new(state_save.admin_state.unwrap_or_default())),
+            unique_users: Arc::new(RwLock::new(state_save.unique_users.unwrap_or_default())),
+        }
+    }
+}
+
+
+#[derive(Default, Serialize, Deserialize, Clone, Debug, PartialEq)]
 /// A struct that stores if an admin has been created, and a vector of hashes of passwords that an admin can use to login.
 pub struct AdminState {
     pub admin_created: bool,
@@ -37,45 +53,25 @@ impl Default for TYRState {
     fn default() -> Self {
         TYRState {
             messages: Arc::new(RwLock::new(HashMap::new())),
-            banned_ips: vec![],
+            banned_ips: Arc::new(RwLock::new(Default::default())),
             admin_state: Arc::from(RwLock::from(AdminState::default())),
             unique_users: Arc::new(Default::default()),
         }
     }
 }
 
-/// Returns a working admin state, could be default if save didnt exist, or is the saved copy.
-pub fn load_admin_state(path: &PathBuf) -> Result<AdminState, ()> {
-    // if admin state save exists, read it,  else return default
-    if let Ok(mut file) = File::open(path) {
-        let mut file_content = String::new();
-        // read state to string, if its valid return the admin state that we read.
-        if file.read_to_string(&mut file_content).is_ok() {
-            let deser: AdminState = serde_json::from_str(&file_content).unwrap_or_default();
-            return Ok(deser);
-        }
-    }
-    Err(())
-}
-
-impl AdminState {
-    /// Saves an admin state to file, serialized.
-    pub fn save_admin_state(&self, path: &PathBuf) {
-        let ser = serde_json::to_string(self).unwrap();
-        let mut file = File::create(path).unwrap();
-        file.write_all(ser.as_ref()).unwrap();
-    }
-}
-
 /// Loads all messages from the system, outputs a new state if no messages were found.
-pub fn load_messages() -> StateSave {
-    let file_name = format!("./output/{SERDE_FILE_NAME}");
-    let mut file = match File::open(file_name) {
+pub fn load_state_save(path: &PathBuf) -> StateSave {
+
+    let mut file = match File::open(path) {
         Ok(f) => f,
         Err(err) => {
             println!("Didnt find serde file name. {err}");
             return StateSave {
                 messages: HashMap::new(),
+                banned_ips: None,
+                admin_state: None,
+                unique_users: None,
             };
         }
     };
@@ -87,6 +83,9 @@ pub fn load_messages() -> StateSave {
             println!("Unable to read to string from save file. {err}");
             return StateSave {
                 messages: HashMap::new(),
+                banned_ips: None,
+                admin_state: None,
+                unique_users: None,
             };
         }
     }
@@ -97,78 +96,129 @@ pub fn load_messages() -> StateSave {
             println!("ERROR UNABLE TO READ STATE SAVE FROM \"messages.ser\", using default message list \n {err}");
             StateSave {
                 messages: HashMap::new(),
+                banned_ips: None,
+                admin_state: None,
+                unique_users: None,
             }
         }
     }
 }
 
 /// Saves all messages to the system in a file.
-pub fn save_messages(messages: HashMap<String, User>) {
-    if !messages.is_empty() {
-        match fs::read_dir("./output") {
-            Ok(_) => {
-                // output dir exists
-            }
-            Err(_) => {
-                match fs::create_dir("./output") {
-                    Ok(_) => {
-                        // output dir now exists
-                    }
-                    Err(err) => {
-                        panic!("{err} \n unable to create output dir, check file permissions?")
-                    }
+pub fn save_program_state(messages: &State<TYRState>, path: &PathBuf) {
+    match fs::read_dir(path.parent().unwrap()) {
+        Ok(_) => {
+            // output dir exists
+        }
+        Err(_) => {
+            match fs::create_dir(path.parent().unwrap()) {
+                Ok(_) => {
+                    // output dir now exists
+                }
+                Err(err) => {
+                    panic!("{err} \n unable to create output dir, check file permissions?")
                 }
             }
         }
+    }
 
-        {
-            // block of code to save the serializable state of the program, useful for allowing users to never lose their messages.
-            let state_save = StateSave {
-                messages: messages.clone(),
+    {
+        // block of code to save the serializable state of the program, useful for allowing users to never lose their messages.
+        let state_save = StateSave {
+            messages: messages.messages.read().unwrap().clone(),
+            banned_ips: Some(messages.banned_ips.read().unwrap().clone()),
+            admin_state: Some(messages.admin_state.read().unwrap().clone()),
+            unique_users: Some(messages.unique_users.read().unwrap().clone()),
+        };
+
+        let ser = serde_json::to_string(&state_save).unwrap();
+
+        let mut ser_file = File::create(path).unwrap();
+
+        ser_file.write_all(ser.as_ref()).unwrap();
+    }
+
+    let file_name = { format!("{}/messages.sav",path.parent().unwrap().to_str().unwrap()) };
+
+    // block for rendering out the user data into a pretty file for the host :)
+    let file = File::create(file_name).unwrap();
+    let mut bw = BufWriter::new(file);
+    for (ip, user) in messages.messages.read().unwrap().iter() {
+        let messages = &user.messages;
+        let _ = bw.write(format!("{ip}:\n").as_bytes()).unwrap();
+        for msg in messages {
+            let date: DateTime<Local> = DateTime::from(msg.time_stamp);
+            let am_pm = match date.hour12().0 {
+                true => "PM",
+                false => "AM",
             };
-
-            let ser = serde_json::to_string(&state_save).unwrap();
-
-            let ser_file_name = format!("./output/{SERDE_FILE_NAME}");
-
-            let mut ser_file = File::create(ser_file_name).unwrap();
-
-            ser_file.write_all(ser.as_ref()).unwrap();
+            let time_format = format!(
+                "{}:{:02}:{:02}{}",
+                date.hour12().1,
+                date.minute(),
+                date.second(),
+                am_pm
+            );
+            let time_stamp_text = format!(
+                "{}-{}-{}: {}",
+                date.year(),
+                date.month(),
+                date.day(),
+                time_format,
+            );
+            let _ = bw
+                .write(format!("\t[ {} ]: {}\n", time_stamp_text, msg.text).as_bytes())
+                .unwrap();
         }
+    }
+    let _ = bw.flush();
+}
 
-        let file_name = { format!("./output/{RENDER_FILE_NAME}") };
+#[cfg(test)]
+mod test {
+    use std::os::linux::raw::stat;
+    use std::time::SystemTime;
+    use super::*;
 
-        // block for rendering out the user data into a pretty file for the host :)
-        let file = File::create(file_name).unwrap();
-        let mut bw = BufWriter::new(file);
-        for (ip, user) in messages.iter() {
-            let messages = &user.messages;
-            let _ = bw.write(format!("{ip}:\n").as_bytes()).unwrap();
-            for msg in messages {
-                let date: DateTime<Local> = DateTime::from(msg.time_stamp);
-                let am_pm = match date.hour12().0 {
-                    true => "PM",
-                    false => "AM",
-                };
-                let time_format = format!(
-                    "{}:{:02}:{:02}{}",
-                    date.hour12().1,
-                    date.minute(),
-                    date.second(),
-                    am_pm
-                );
-                let time_stamp_text = format!(
-                    "{}-{}-{}: {}",
-                    date.year(),
-                    date.month(),
-                    date.day(),
-                    time_format,
-                );
-                let _ = bw
-                    .write(format!("\t[ {} ]: {}\n", time_stamp_text, msg.text).as_bytes())
-                    .unwrap();
-            }
+    #[test]
+    fn test_state_management() {
+        let state = TYRState{
+            messages: Arc::new(Default::default()),
+            banned_ips: Arc::new(Default::default()),
+            admin_state: Arc::new(Default::default()),
+            unique_users: Arc::new(Default::default()),
+        };
+        state.admin_state.write().unwrap().admin_created = true;
+        state.admin_state.write().unwrap().admin_hashes.push("lmao not a real hash".to_string());
+        state.unique_users.write().unwrap().insert("this ip".to_string(),UserMetric{ request_count: 44 });
+        state.unique_users.write().unwrap().insert("this ip2".to_string(),UserMetric{ request_count: 55 });
+        state.banned_ips.write().unwrap().push("1.2.3.4".to_string());
+        state.banned_ips.write().unwrap().push("5.6.7.8".to_string());
+        state.messages.write().unwrap().insert("4.1.2.3".to_string(),User{ messages: vec![], last_time_post: SystemTime::now() });
+        state.messages.write().unwrap().get_mut("4.1.2.3").unwrap().push("lmao".to_string(),None);
+        let mut rocket = rocket::build().manage(state.clone());
+        save_program_state(&State::get(&rocket).unwrap(), &PathBuf::from("./test/test_state.ser"));
+
+        let loaded_state = TYRState::from_state_save(load_state_save(&PathBuf::from("./test/test_state.ser")));
+
+
+        assert_eq!(state.admin_state.read().unwrap().clone(),loaded_state.admin_state.read().unwrap().clone());
+        assert_eq!(state.unique_users.read().unwrap().clone(),loaded_state.unique_users.read().unwrap().clone());
+
+        // check the text of each message, this is because system times when serialized get rounded partially.
+        for (ip,user) in state.messages.read().unwrap().iter() {
+            assert_eq!(state.messages.read().unwrap().get(ip).unwrap()
+                           .messages.iter()
+                           .map(|msg| msg.text.to_string())
+                           .collect::<Vec<String>>(),
+                       loaded_state.messages.read().unwrap().get(ip).unwrap()
+                           .messages.iter()
+                           .map(|msg| msg.text.to_string())
+                           .collect::<Vec<String>>()
+            );
         }
-        let _ = bw.flush();
+        assert_eq!(state.banned_ips.read().unwrap().clone(),loaded_state.banned_ips.read().unwrap().clone());
+
+        fs::remove_dir_all(PathBuf::from("./test")).unwrap();
     }
 }
