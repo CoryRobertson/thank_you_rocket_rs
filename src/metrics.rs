@@ -6,16 +6,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use std::sync::{Arc, RwLock};
+use crate::state_management::TYRState;
 
-/// A struct that can contain things we take metrics on, at the moment it only contains the list of banned ips, but will eventually keep track of how many people have view the page for example
-/// Or even keeping a how many unique users have viewed the page.
-pub struct Metrics {
-    pub banned_ips: Arc<RwLock<Vec<String>>>,
-    pub unique_users: Arc<RwLock<HashMap<String, UserMetric>>>,
-}
-
-
+/// A struct handles metrics capturing, this struct is purely a function only implementation struct, and contains no data itself.
+/// It takes a reference to the rockets managed state "TYRState" when it needs to modify data.
+pub struct Metrics {}
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 /// A struct that contains the data each user will carry as we track their metrics, at the moment
@@ -62,27 +57,23 @@ impl Fairing for Metrics {
         }
     }
 
-    // On ignite, we read the serialized users and input them into this metrics object.
-    // async fn on_ignite(&self, rocket: Rocket<Build>) -> rocket::fairing::Result {
-    //     self.deserialize_metrics(&PathBuf::from("./output/metrics.ser"));
-    //     Ok(rocket)
-    // }
-
     /// On request, we check the users ip, if it is banned, we change their uri to an error message.
     async fn on_request(&self, req: &mut Request<'_>, _data: &mut Data<'_>) {
+        let state = req.rocket().state::<TYRState>().unwrap();
+
         match req.remote() {
             None => {
                 // if somehow we don't get a remote url, direct them to an error page
                 req.set_uri(Origin::try_from("/error_message").unwrap());
             }
             Some(ip) => {
-                if is_banned(&ip.ip().to_string(), &self.banned_ips.read().unwrap()) {
+                if is_banned(&ip.ip().to_string(), &state.banned_ips.read().unwrap()) {
                     // if the user has a valid ip, and is banned, direct them to an error page, and cease function activity.
                     req.set_uri(Origin::try_from("/error_message").unwrap());
                     return;
                 } else {
                     // if the user is not banned, then we do metrics on them.
-                    let mut lock = self.unique_users.write().unwrap();
+                    let mut lock = state.unique_users.write().unwrap();
                     match lock.get_mut(&ip.ip().to_string()) {
                         None => {
                             lock.insert(ip.ip().to_string(), UserMetric { request_count: 1 });
@@ -100,11 +91,4 @@ impl Fairing for Metrics {
     async fn on_response<'r>(&self, _req: &'r Request<'_>, _res: &mut Response<'r>) {
         // unimplemented
     }
-
-    // On shutdown we save the unique users to file, and save their metrics in a pretty format to a file as well.
-    // async fn on_shutdown(&self, _rocket: &Rocket<Orbit>) {
-    //     self.serialize_users(&PathBuf::from("./output/metrics.ser"));
-    //     let future = save_metrics(self.unique_users.read().unwrap().clone());
-    //     future.await;
-    // }
 }

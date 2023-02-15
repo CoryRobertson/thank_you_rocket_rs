@@ -57,10 +57,7 @@ fn rocket() -> Rocket<Build> {
 
     let state = TYRState::from_state_save(load);
 
-    let metrics_fairing: Metrics = Metrics {
-        banned_ips: state.banned_ips.clone(),
-        unique_users: state.unique_users.clone(),
-    };
+    let metrics_fairing: Metrics = Metrics {};
 
     #[cfg(debug_assertions)]
     println!("Salt: {}", pages::login::SALT.as_str());

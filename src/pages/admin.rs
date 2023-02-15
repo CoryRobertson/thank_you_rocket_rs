@@ -1,5 +1,5 @@
 use crate::common::is_ip_valid;
-use crate::state_management::TYRState;
+use crate::state_management::{save_program_state, TYRState};
 use maud::{html, PreEscaped};
 use rocket::form::Form;
 use rocket::outcome::Outcome;
@@ -7,6 +7,7 @@ use rocket::request::FromRequest;
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
 use rocket::{request, Request, State};
+use std::path::PathBuf;
 
 #[derive(Default)]
 /// Request guard that requires an admin cookie.
@@ -35,6 +36,7 @@ impl<'r> FromRequest<'r> for IsAdminGuard {
 }
 
 #[get("/admin/metrics")]
+/// Admin only page for viewing metrics of the site.
 pub fn admin_metrics(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
     let unique_users_lock = state.unique_users.read().unwrap();
 
@@ -66,6 +68,7 @@ pub fn admin_metrics(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtm
 }
 
 #[get("/admin")]
+/// Admin only page for displaying all messages sent to the server, as well as a few tools.
 pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
     let messages = state.messages.read().unwrap().clone();
     let message_list = {
@@ -134,6 +137,7 @@ pub struct Ip {
 pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) -> Redirect {
     if is_ip_valid(&ip.ip) {
         state.banned_ips.write().unwrap().push(ip.ip.clone());
+        save_program_state(state, &PathBuf::from("./output/state.ser"));
     }
     Redirect::to(uri!("/admin"))
 }
