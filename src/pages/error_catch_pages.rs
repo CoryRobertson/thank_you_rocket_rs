@@ -2,6 +2,7 @@ use maud::{html, PreEscaped};
 use rocket::response::content::RawHtml;
 
 #[catch(404)]
+/// 404 error route
 pub fn not_found() -> RawHtml<String> {
     let error_text =
         "lmao dunno what page this was meant to be, but hopefully you are happy with this cat!";

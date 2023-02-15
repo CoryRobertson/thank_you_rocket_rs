@@ -12,16 +12,10 @@ use std::sync::{Arc, RwLock};
 /// Or even keeping a how many unique users have viewed the page.
 pub struct Metrics {
     pub banned_ips: Arc<RwLock<Vec<String>>>,
-
     pub unique_users: Arc<RwLock<HashMap<String, UserMetric>>>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-/// A serializable version of metrics, for the purpose of saving the metrics to a file.
-struct SerializableMetrics {
-    request_count: u64,
-    users: HashMap<String, UserMetric>,
-}
+
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 /// A struct that contains the data each user will carry as we track their metrics, at the moment

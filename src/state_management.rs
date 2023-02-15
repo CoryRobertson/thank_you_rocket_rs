@@ -12,6 +12,7 @@ use std::sync::{Arc, RwLock};
 
 #[derive(Serialize, Deserialize)]
 /// A serializable version of the TYRState struct, used only for saving.
+/// Content in this state are persisted between launches.
 pub struct StateSave {
     pub messages: HashMap<String, User>,
     pub banned_ips: Option<Vec<String>>,
@@ -20,6 +21,7 @@ pub struct StateSave {
 }
 
 /// The state struct for the rocket web frame work.
+/// Content in this struct but not in StateSave are not persisted.
 #[derive(Debug, Clone)]
 pub struct TYRState {
     // hash map consists of the ip address as a key, and the user struct itself.
@@ -30,6 +32,7 @@ pub struct TYRState {
 }
 
 impl TYRState {
+    /// Reads a StateSave object, producing a TYRState object.
     pub fn from_state_save(state_save: StateSave) -> Self {
         TYRState {
             messages: Arc::new(RwLock::new(state_save.messages)),

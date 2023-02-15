@@ -38,9 +38,13 @@ pub static MESSAGE_LENGTH_CAP: usize = 150;
 /// The minimum length of a message that can be left by a user.
 pub static MESSAGE_LENGTH_MIN: usize = 3;
 
+/// File name for saving the state to the system.
 pub static SERDE_FILE_NAME: &str = "state.ser";
+
+/// Rendered version of messages, in a pretty file.
 pub static RENDER_FILE_NAME: &str = "messages.sav";
 
+/// Version number for the cargo package version.
 pub static VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
 #[launch]
@@ -49,7 +53,6 @@ fn rocket() -> Rocket<Build> {
 
     let load = load_state_save(&PathBuf::from(format!("./output/{SERDE_FILE_NAME}")));
 
-    #[cfg(debug_assertions)]
     println!("Loaded message data: {:?}", load.messages);
 
     let state = TYRState::from_state_save(load);
@@ -62,7 +65,6 @@ fn rocket() -> Rocket<Build> {
     #[cfg(debug_assertions)]
     println!("Salt: {}", pages::login::SALT.as_str());
 
-    #[cfg(debug_assertions)]
     println!("Admin state: {:?}", state.admin_state.read().unwrap());
 
     println!("Loaded banned ips: {:?}", state.banned_ips.read().unwrap());
@@ -98,7 +100,7 @@ fn rocket() -> Rocket<Build> {
             FileServer::from("./discreet_math_fib_dist"),
         ) // program crashes if static folder does not exist.
         .attach(metrics_fairing)
-        .attach(AdHoc::on_shutdown("Admin shutdown save", |rocket| {
+        .attach(AdHoc::on_shutdown("State shutdown save", |rocket| {
             Box::pin(async move {
                 println!("Saving state to file system.");
                 let state_ref = rocket.state::<TYRState>().unwrap();

@@ -9,6 +9,7 @@ use rocket::response::Redirect;
 use rocket::{request, Request, State};
 
 #[derive(Default)]
+/// Request guard that requires an admin cookie.
 pub struct IsAdminGuard(String);
 
 #[rocket::async_trait]
@@ -121,11 +122,13 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
 }
 
 #[derive(FromForm, Debug, Clone)]
+/// Struct for the form used when handling an ip address.
 pub struct Ip {
     pub ip: String,
 }
 
 #[post("/admin/ban_ip", data = "<ip>")]
+/// Route for banning an ip, requires an admin cookie, and a form submission containing an ip address.
 pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) -> Redirect {
     if is_ip_valid(&ip.ip) {
         state.banned_ips.write().unwrap().push(ip.ip.clone());
