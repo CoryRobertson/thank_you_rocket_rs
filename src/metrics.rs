@@ -114,4 +114,3 @@ impl Fairing for Metrics {
     //     future.await;
     // }
 }
-

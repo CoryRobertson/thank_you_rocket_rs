@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 #[derive(Serialize, Deserialize)]
@@ -31,7 +31,7 @@ pub struct TYRState {
 
 impl TYRState {
     pub fn from_state_save(state_save: StateSave) -> Self {
-        TYRState{
+        TYRState {
             messages: Arc::new(RwLock::new(state_save.messages)),
             banned_ips: Arc::new(RwLock::new(state_save.banned_ips.unwrap_or_default())),
             admin_state: Arc::new(RwLock::new(state_save.admin_state.unwrap_or_default())),
@@ -39,7 +39,6 @@ impl TYRState {
         }
     }
 }
-
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug, PartialEq)]
 /// A struct that stores if an admin has been created, and a vector of hashes of passwords that an admin can use to login.
@@ -62,7 +61,6 @@ impl Default for TYRState {
 
 /// Loads all messages from the system, outputs a new state if no messages were found.
 pub fn load_state_save(path: &PathBuf) -> StateSave {
-
     let mut file = match File::open(path) {
         Ok(f) => f,
         Err(err) => {
@@ -138,7 +136,7 @@ pub fn save_program_state(messages: &State<TYRState>, path: &PathBuf) {
         ser_file.write_all(ser.as_ref()).unwrap();
     }
 
-    let file_name = { format!("{}/messages.sav",path.parent().unwrap().to_str().unwrap()) };
+    let file_name = { format!("{}/messages.sav", path.parent().unwrap().to_str().unwrap()) };
 
     // block for rendering out the user data into a pretty file for the host :)
     let file = File::create(file_name).unwrap();
@@ -176,48 +174,105 @@ pub fn save_program_state(messages: &State<TYRState>, path: &PathBuf) {
 
 #[cfg(test)]
 mod test {
-    use std::os::linux::raw::stat;
-    use std::time::SystemTime;
     use super::*;
+    use std::time::SystemTime;
 
     #[test]
     fn test_state_management() {
-        let state = TYRState{
+        let state = TYRState {
             messages: Arc::new(Default::default()),
             banned_ips: Arc::new(Default::default()),
             admin_state: Arc::new(Default::default()),
             unique_users: Arc::new(Default::default()),
         };
         state.admin_state.write().unwrap().admin_created = true;
-        state.admin_state.write().unwrap().admin_hashes.push("lmao not a real hash".to_string());
-        state.unique_users.write().unwrap().insert("this ip".to_string(),UserMetric{ request_count: 44 });
-        state.unique_users.write().unwrap().insert("this ip2".to_string(),UserMetric{ request_count: 55 });
-        state.banned_ips.write().unwrap().push("1.2.3.4".to_string());
-        state.banned_ips.write().unwrap().push("5.6.7.8".to_string());
-        state.messages.write().unwrap().insert("4.1.2.3".to_string(),User{ messages: vec![], last_time_post: SystemTime::now() });
-        state.messages.write().unwrap().get_mut("4.1.2.3").unwrap().push("lmao".to_string(),None);
-        let mut rocket = rocket::build().manage(state.clone());
-        save_program_state(&State::get(&rocket).unwrap(), &PathBuf::from("./test/test_state.ser"));
+        state
+            .admin_state
+            .write()
+            .unwrap()
+            .admin_hashes
+            .push("lmao not a real hash".to_string());
+        state
+            .unique_users
+            .write()
+            .unwrap()
+            .insert("this ip".to_string(), UserMetric { request_count: 44 });
+        state
+            .unique_users
+            .write()
+            .unwrap()
+            .insert("this ip2".to_string(), UserMetric { request_count: 55 });
+        state
+            .banned_ips
+            .write()
+            .unwrap()
+            .push("1.2.3.4".to_string());
+        state
+            .banned_ips
+            .write()
+            .unwrap()
+            .push("5.6.7.8".to_string());
+        state.messages.write().unwrap().insert(
+            "4.1.2.3".to_string(),
+            User {
+                messages: vec![],
+                last_time_post: SystemTime::now(),
+            },
+        );
+        state
+            .messages
+            .write()
+            .unwrap()
+            .get_mut("4.1.2.3")
+            .unwrap()
+            .push("lmao".to_string(), None);
+        let rocket = rocket::build().manage(state.clone());
+        save_program_state(
+            &State::get(&rocket).unwrap(),
+            &PathBuf::from("./test/test_state.ser"),
+        );
 
-        let loaded_state = TYRState::from_state_save(load_state_save(&PathBuf::from("./test/test_state.ser")));
+        let loaded_state =
+            TYRState::from_state_save(load_state_save(&PathBuf::from("./test/test_state.ser")));
 
-
-        assert_eq!(state.admin_state.read().unwrap().clone(),loaded_state.admin_state.read().unwrap().clone());
-        assert_eq!(state.unique_users.read().unwrap().clone(),loaded_state.unique_users.read().unwrap().clone());
+        assert_eq!(
+            state.admin_state.read().unwrap().clone(),
+            loaded_state.admin_state.read().unwrap().clone()
+        );
+        assert_eq!(
+            state.unique_users.read().unwrap().clone(),
+            loaded_state.unique_users.read().unwrap().clone()
+        );
 
         // check the text of each message, this is because system times when serialized get rounded partially.
-        for (ip,user) in state.messages.read().unwrap().iter() {
-            assert_eq!(state.messages.read().unwrap().get(ip).unwrap()
-                           .messages.iter()
-                           .map(|msg| msg.text.to_string())
-                           .collect::<Vec<String>>(),
-                       loaded_state.messages.read().unwrap().get(ip).unwrap()
-                           .messages.iter()
-                           .map(|msg| msg.text.to_string())
-                           .collect::<Vec<String>>()
+        for (ip, _) in state.messages.read().unwrap().iter() {
+            assert_eq!(
+                state
+                    .messages
+                    .read()
+                    .unwrap()
+                    .get(ip)
+                    .unwrap()
+                    .messages
+                    .iter()
+                    .map(|msg| msg.text.to_string())
+                    .collect::<Vec<String>>(),
+                loaded_state
+                    .messages
+                    .read()
+                    .unwrap()
+                    .get(ip)
+                    .unwrap()
+                    .messages
+                    .iter()
+                    .map(|msg| msg.text.to_string())
+                    .collect::<Vec<String>>()
             );
         }
-        assert_eq!(state.banned_ips.read().unwrap().clone(),loaded_state.banned_ips.read().unwrap().clone());
+        assert_eq!(
+            state.banned_ips.read().unwrap().clone(),
+            loaded_state.banned_ips.read().unwrap().clone()
+        );
 
         fs::remove_dir_all(PathBuf::from("./test")).unwrap();
     }

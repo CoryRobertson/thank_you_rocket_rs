@@ -2,7 +2,6 @@
 #[macro_use]
 extern crate rocket;
 
-use std::path::PathBuf;
 use crate::metrics::Metrics;
 use crate::pages::admin::*;
 use crate::pages::error_catch_pages::not_found;
@@ -16,6 +15,7 @@ use crate::state_management::*;
 use rocket::fairing::AdHoc;
 use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
+use std::path::PathBuf;
 
 mod common;
 mod message;
