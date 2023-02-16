@@ -13,6 +13,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 
 lazy_static! {
+    /// static ref to the salt being used by the program to hash passwords.
     pub static ref SALT: String = {
         match File::open("./output/salt.key") {
             Ok(mut file) => {
@@ -33,6 +34,7 @@ lazy_static! {
 }
 
 #[get("/login")]
+/// Login route containing buttons to submit a form with a password.
 pub fn login() -> RawHtml<String> {
     RawHtml(
         r#"
@@ -59,11 +61,13 @@ pub fn login() -> RawHtml<String> {
 }
 
 #[derive(FromForm, Debug, Clone)]
+/// Login form for handling passwords used to login.
 pub struct Login {
     pub password: String,
 }
 
 #[get("/logout")]
+/// Route for logging out, simply removes the given users login cookie if it exists.
 pub fn logout(jar: &CookieJar) -> Redirect {
     match jar.get("login") {
         None => {}
@@ -75,6 +79,7 @@ pub fn logout(jar: &CookieJar) -> Redirect {
 }
 
 #[post("/login", data = "<password>")]
+/// Login post request route, hashes the password given, then stores it in a cookie with a key of "login"
 pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState>) -> Redirect {
     let a2 = Argon2::default();
     let salt = &SALT;
@@ -99,15 +104,16 @@ pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState
 }
 
 #[derive(Default)]
-pub struct IsLoggedInGuard; // TODO: return the cookie hash if this guard succeeds.
+/// Struct and request guard for requiring the given user to be logged in
+pub struct IsLoggedInGuard(String);
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for IsLoggedInGuard {
     type Error = ();
 
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        if req.cookies().get("login").is_some() {
-            Outcome::Success(IsLoggedInGuard::default())
+        if let Some(login_cookie) = req.cookies().get("login") {
+            Outcome::Success(IsLoggedInGuard(login_cookie.value().to_string()))
         } else {
             Outcome::Forward(())
         }

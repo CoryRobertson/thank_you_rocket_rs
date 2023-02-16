@@ -1,5 +1,5 @@
 use crate::message::{Message, NewMessage};
-use crate::state_management::save_messages;
+use crate::state_management::save_program_state;
 use crate::user::User;
 use crate::TYRState;
 use crate::{MESSAGE_LENGTH_CAP, MESSAGE_LENGTH_MIN};
@@ -9,13 +9,14 @@ use rocket::http::CookieJar;
 use rocket::response::Redirect;
 use rocket::State;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 
 #[post("/submit_message", data = "<message>")]
 /// Route for submitting a message, requires post request data that can fill out the form of a new message, verifies the message for various indicators that it shouldn't be saved.
 pub fn submit_message(
     message: Form<NewMessage>,
     req: SocketAddr,
-    messages: &State<TYRState>,
+    state: &State<TYRState>,
     jar: &CookieJar,
 ) -> Redirect {
     let user_ip = &req.ip().to_string();
@@ -33,7 +34,7 @@ pub fn submit_message(
     }
 
     {
-        let lock = messages.messages.read().unwrap();
+        let lock = state.messages.read().unwrap();
         match lock.get(user_ip) {
             None => {
                 // if the user does not exist, then they are allowed to post.
@@ -51,7 +52,7 @@ pub fn submit_message(
     } // block for locking in read mode, the message list to check if the user is able to post, or if their message is a duplicate.
 
     {
-        let mut lock = messages.messages.write().unwrap();
+        let mut lock = state.messages.write().unwrap();
         match lock.get_mut(user_ip) {
             None => {
                 let msg = Message {
@@ -67,8 +68,7 @@ pub fn submit_message(
         };
     } // block for locking the message block in write mode.
 
-    let lock = messages.messages.read().unwrap();
-    save_messages(lock.clone());
+    save_program_state(state, &PathBuf::from("./output/state.ser"));
 
     Redirect::to(uri!("/"))
 }

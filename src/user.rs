@@ -6,7 +6,7 @@ use rocket::http::Cookie;
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 /// A user struct is a the value portion of a hashmap with a key of an ip address, struct contains a timestamp of the time they last posted, and a vector of all their messages.
 pub struct User {
     pub messages: Vec<Message>,
