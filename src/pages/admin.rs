@@ -97,7 +97,6 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
     let banned_ips = format!("{:?}", state.banned_ips.read().unwrap());
 
     // TODO: add ip input field for admin resetting cooldown for a given ip address, should probably just set their last post time to unix epoch? or possibly set a boolean on their user?
-    // TODO: Add a checkbox to the form that allows a given ip to be unbanned, defaulting to be checked if possible?
 
     RawHtml(
         html! {
@@ -108,6 +107,11 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
                     <label for="ip">Enter ip</label>
                     <br>
                     <input type="text" name="ip" id="ip">
+                    <br>
+                    <p>
+                        Check to ban, uncheck to unban:
+                        <input type="checkbox" name="ban_check_box" id="ban_check_box" value="true">
+                    </p>
                     <input type="submit" value="Submit Ip">
                 </form>
                 "#
@@ -130,13 +134,23 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
 /// Struct for the form used when handling an ip address.
 pub struct Ip {
     pub ip: String,
+    pub ban_check_box: bool,
 }
 
 #[post("/admin/ban_ip", data = "<ip>")]
 /// Route for banning an ip, requires an admin cookie, and a form submission containing an ip address.
 pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) -> Redirect {
     if is_ip_valid(&ip.ip) {
-        state.banned_ips.write().unwrap().push(ip.ip.clone());
+        if ip.ban_check_box {
+            state.banned_ips.write().unwrap().push(ip.ip.clone());
+        } else {
+            let banned_ips = { state.banned_ips.read().unwrap().clone() };
+            for (index,loop_ip) in banned_ips.iter().enumerate() {
+                if loop_ip.eq(&ip.ip) {
+                    state.banned_ips.write().unwrap().remove(index);
+                }
+            }
+        }
         save_program_state(state, &PathBuf::from("./output/state.ser"));
     }
     Redirect::to(uri!("/admin"))
