@@ -97,6 +97,8 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
         "<button onclick=\"window.location.href=\'/admin/metrics\';\">Metrics</button>";
     let banned_ips = format!("{:?}", state.banned_ips.read().unwrap());
 
+    // TODO: make a new page where it shows all users who are currently on post cooldown.
+
     RawHtml(
         html! {
             p {"you are an admin!"}
