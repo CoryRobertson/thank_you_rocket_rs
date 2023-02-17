@@ -137,6 +137,7 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
 }
 
 #[derive(FromFormField, Debug, Clone)]
+/// Enum for determining the action to go through with, used for submitting an ip address in a form.
 pub enum IpAction {
     Ban,
     Unban,

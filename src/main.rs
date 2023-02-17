@@ -47,8 +47,6 @@ pub static RENDER_FILE_NAME: &str = "messages.sav";
 /// Version number for the cargo package version.
 pub static VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
-// TODO: refactor all code such that the only code in each source is directly related to its class name, this might be done already, not sure.
-
 #[launch]
 fn rocket() -> Rocket<Build> {
     // using this return type isn't shown in the documentation from my minimal looking, but makes intellij happy.
