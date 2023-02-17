@@ -1,3 +1,4 @@
+use crate::state_management::TYRState;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::uri::Origin;
 use rocket::tokio::spawn;
@@ -6,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use crate::state_management::TYRState;
 
 /// A struct handles metrics capturing, this struct is purely a function only implementation struct, and contains no data itself.
 /// It takes a reference to the rockets managed state "TYRState" when it needs to modify data.
