@@ -66,6 +66,9 @@ fn rocket() -> Rocket<Build> {
 
     println!("Loaded banned ips: {:?}", state.banned_ips.read().unwrap());
 
+
+    println!("dsadjdoisadsa");
+
     rocket::build()
         .manage(state)
         .mount(

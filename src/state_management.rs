@@ -231,7 +231,7 @@ mod test {
             .push("lmao".to_string(), None);
         let rocket = rocket::build().manage(state.clone());
         save_program_state(
-            &State::get(&rocket).unwrap(),
+            State::get(&rocket).unwrap(),
             &PathBuf::from("./test/test_state.ser"),
         );
 
