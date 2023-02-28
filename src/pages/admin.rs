@@ -8,8 +8,10 @@ use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
 use rocket::{request, Request, State};
 use std::path::PathBuf;
-use std::time::UNIX_EPOCH;
+use std::time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH};
 use chrono_tz::US::Pacific;
+use crate::POST_COOLDOWN;
+use crate::user::User;
 
 #[derive(Default)]
 /// Request guard that requires an admin cookie.
@@ -69,6 +71,35 @@ pub fn admin_metrics(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtm
     )
 }
 
+#[get("/admin/view_cooldown")]
+/// An admin only page that displays all users who are currently on cooldown.
+pub fn view_cooldown(is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
+    let read_lock = state.messages.read().unwrap();
+     let users_on_cooldown = read_lock
+         .iter()
+         .filter(|(ip,user)| !user.can_post()).collect::<Vec<(&String,&User)>>();
+
+    let mut cooldown_users_string = String::new();
+    for (ip, user) in users_on_cooldown {
+        let time_left_cooldown = match SystemTime::now().duration_since(user.last_time_post) {
+            Ok(time) => { POST_COOLDOWN - time.as_secs() }
+            Err(_) => { 0 }
+        };
+        cooldown_users_string.push_str(&format!("{}: {}", &ip, time_left_cooldown));
+    }
+
+    let back_button = "<button onclick=\"window.location.href=\'/admin\';\">Go back</button>";
+
+    RawHtml(html! {
+        (PreEscaped(back_button))
+        br;
+        br;
+        p {"[IP: Time Left]"}
+        (cooldown_users_string)
+    }.into_string())
+
+}
+
 #[get("/admin")]
 /// Admin only page for displaying all messages sent to the server, as well as a few tools.
 pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
@@ -94,8 +125,8 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
         output
     };
     let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
-    let metrics_button =
-        "<button onclick=\"window.location.href=\'/admin/metrics\';\">Metrics</button>";
+    let metrics_button = "<button onclick=\"window.location.href=\'/admin/metrics\';\">Metrics</button>";
+    let view_cooldown_button = "<button onclick=\"window.location.href=\'/admin/view_cooldown\';\">View Cooldowns</button>";
     let banned_ips = format!("{:?}", state.banned_ips.read().unwrap());
 
     // TODO: make a new page where it shows all users who are currently on post cooldown.
@@ -131,6 +162,7 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
             br;
             (PreEscaped(back_button))
             (PreEscaped(metrics_button))
+            (PreEscaped(view_cooldown_button))
             br;
             br;
             (PreEscaped(message_list))

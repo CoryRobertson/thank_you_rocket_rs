@@ -66,9 +66,6 @@ fn rocket() -> Rocket<Build> {
 
     println!("Loaded banned ips: {:?}", state.banned_ips.read().unwrap());
 
-
-    println!("dsadjdoisadsa");
-
     rocket::build()
         .manage(state)
         .mount(
@@ -90,6 +87,7 @@ fn rocket() -> Rocket<Build> {
                 admin,
                 admin_metrics,
                 ban_ip,
+                view_cooldown,
             ],
         )
         .register("/", catchers![not_found])
