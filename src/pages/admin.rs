@@ -9,6 +9,7 @@ use rocket::response::Redirect;
 use rocket::{request, Request, State};
 use std::path::PathBuf;
 use std::time::UNIX_EPOCH;
+use chrono_tz::US::Pacific;
 
 #[derive(Default)]
 /// Request guard that requires an admin cookie.
@@ -86,7 +87,7 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
                 };
                 output.push_str(&format!(
                     "{} :{}: {} <br>",
-                    message.time_stamp, hashed, escaped
+                    message.time_stamp.with_timezone(&Pacific), hashed, escaped
                 ));
             });
         }
