@@ -8,7 +8,7 @@ use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
 use rocket::{request, Request, State};
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 use chrono_tz::US::Pacific;
 use crate::POST_COOLDOWN;
 use crate::user::User;
@@ -104,7 +104,7 @@ pub fn view_cooldown(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtm
     let read_lock = state.messages.read().unwrap();
      let users_on_cooldown = read_lock
          .iter()
-         .filter(|(ip,user)| !user.can_post()).collect::<Vec<(&String,&User)>>();
+         .filter(|(_,user)| !user.can_post()).collect::<Vec<(&String,&User)>>();
 
     let mut cooldown_users_string = String::new();
     for (ip, user) in users_on_cooldown {

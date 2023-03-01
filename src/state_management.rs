@@ -199,12 +199,12 @@ mod test {
             .unique_users
             .write()
             .unwrap()
-            .insert("this ip".to_string(), UserMetric { request_count: 44 });
+            .insert("this ip".to_string(), UserMetric { request_count: 44, logins: None });
         state
             .unique_users
             .write()
             .unwrap()
-            .insert("this ip2".to_string(), UserMetric { request_count: 55 });
+            .insert("this ip2".to_string(), UserMetric { request_count: 55, logins: None });
         state
             .banned_ips
             .write()

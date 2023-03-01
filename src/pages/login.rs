@@ -12,7 +12,6 @@ use rocket::{Request, State};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::SocketAddr;
-use crate::metrics::UserMetric;
 
 lazy_static! {
     /// static ref to the salt being used by the program to hash passwords.
