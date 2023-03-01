@@ -80,7 +80,12 @@ pub fn logout(jar: &CookieJar) -> Redirect {
 
 #[post("/login", data = "<password>")]
 /// Login post request route, hashes the password given, then stores it in a cookie with a key of "login"
-pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState>,req: SocketAddr) -> Redirect {
+pub fn login_post(
+    password: Form<Login>,
+    jar: &CookieJar,
+    state: &State<TYRState>,
+    req: SocketAddr,
+) -> Redirect {
     let a2 = Argon2::default();
     let salt = &SALT;
     let hash_password = a2
@@ -94,22 +99,17 @@ pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState
     let ip = &req.ip().to_string();
     match state.unique_users.write().unwrap().get_mut(ip) {
         None => {}
-        Some(user_metric) => {
-
-            match &mut user_metric.logins {
-                None => {
-                    user_metric.logins = Some(vec![hash_password.hash.unwrap().to_string()]);
-                }
-                Some(logins) => {
-                    if !logins.contains(&hash_password.hash.unwrap().to_string()) {
-                        logins.push(hash_password.hash.unwrap().to_string());
-                    }
+        Some(user_metric) => match &mut user_metric.logins {
+            None => {
+                user_metric.logins = Some(vec![hash_password.hash.unwrap().to_string()]);
+            }
+            Some(logins) => {
+                if !logins.contains(&hash_password.hash.unwrap().to_string()) {
+                    logins.push(hash_password.hash.unwrap().to_string());
                 }
             }
-
-        }
+        },
     };
-
 
     let admin_exists: bool = { state.admin_state.read().unwrap().admin_created }; // state for if an admin exists
 

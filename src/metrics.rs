@@ -77,7 +77,13 @@ impl Fairing for Metrics {
                     let mut lock = state.unique_users.write().unwrap();
                     match lock.get_mut(&ip.ip().to_string()) {
                         None => {
-                            lock.insert(ip.ip().to_string(), UserMetric { request_count: 1, logins: Some(vec![]) });
+                            lock.insert(
+                                ip.ip().to_string(),
+                                UserMetric {
+                                    request_count: 1,
+                                    logins: Some(vec![]),
+                                },
+                            );
                         }
                         Some(metric) => {
                             metric.request_count += 1;

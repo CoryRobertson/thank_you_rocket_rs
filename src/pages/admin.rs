@@ -1,5 +1,8 @@
 use crate::common::is_ip_valid;
 use crate::state_management::{save_program_state, TYRState};
+use crate::user::User;
+use crate::POST_COOLDOWN;
+use chrono_tz::US::Pacific;
 use maud::{html, PreEscaped};
 use rocket::form::Form;
 use rocket::outcome::Outcome;
@@ -9,9 +12,6 @@ use rocket::response::Redirect;
 use rocket::{request, Request, State};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use chrono_tz::US::Pacific;
-use crate::POST_COOLDOWN;
-use crate::user::User;
 
 #[derive(Default)]
 /// Request guard that requires an admin cookie.
@@ -72,59 +72,69 @@ pub fn admin_metrics(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtm
 }
 
 #[get("/admin/view_hashes")]
+/// A page that displays all ip addresses and their given login hashes they have ever used.
 pub fn view_hashes(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
     let read_lock = state.unique_users.read().unwrap();
 
     let mut login_hashes_string = String::new();
 
-    for (ip,user) in read_lock.iter() {
+    for (ip, user) in read_lock.iter() {
         let hashes = {
             match &user.logins {
-                None => { "".to_string() }
-                Some(logins_vec) => { format!("{:?}", logins_vec)}
+                None => "".to_string(),
+                Some(logins_vec) => {
+                    let formatted = format!("{:?}", logins_vec); // convert vector to a string, does not need to be pretty.
+                    let escaped = html_escape::encode_safe(&formatted); // escape it, just encase :)
+                    escaped.to_string()
+                }
             }
         };
-        login_hashes_string.push_str(&format!("{}: {} <br>",ip, hashes));
+        login_hashes_string.push_str(&format!("{}: {} <br>", ip, hashes));
     }
 
     let back_button = "<button onclick=\"window.location.href=\'/admin\';\">Go back</button>";
 
-    RawHtml(html! {
-        (PreEscaped(back_button))
-        br;
-        br;
-        (PreEscaped(login_hashes_string))
-    }.into_string())
+    RawHtml(
+        html! {
+            (PreEscaped(back_button))
+            br;
+            br;
+            (PreEscaped(login_hashes_string))
+        }
+        .into_string(),
+    )
 }
-
 
 #[get("/admin/view_cooldown")]
 /// An admin only page that displays all users who are currently on cooldown.
 pub fn view_cooldown(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
     let read_lock = state.messages.read().unwrap();
-     let users_on_cooldown = read_lock
-         .iter()
-         .filter(|(_,user)| !user.can_post()).collect::<Vec<(&String,&User)>>();
+    let users_on_cooldown = read_lock
+        .iter()
+        .filter(|(_, user)| !user.can_post())
+        .collect::<Vec<(&String, &User)>>();
 
     let mut cooldown_users_string = String::new();
     for (ip, user) in users_on_cooldown {
         let time_left_cooldown = match SystemTime::now().duration_since(user.last_time_post) {
-            Ok(time) => { POST_COOLDOWN - time.as_secs() }
-            Err(_) => { 0 }
+            Ok(time) => POST_COOLDOWN - time.as_secs(),
+            Err(_) => 0,
         };
         cooldown_users_string.push_str(&format!("{}: {} <br>", &ip, time_left_cooldown));
     }
 
     let back_button = "<button onclick=\"window.location.href=\'/admin\';\">Go back</button>";
 
-    RawHtml(html! {
-        (PreEscaped(back_button))
-        br;
-        br;
-        p {"[IP: Time Left]"}
-        (cooldown_users_string)
-    }.into_string())
-
+    RawHtml(
+        html! {
+            (PreEscaped(back_button))
+            br;
+            br;
+            p {"[IP: Time Left]"}
+            (cooldown_users_string)
+        }
+        .into_string(),
+    )
 }
 
 #[get("/admin")]
@@ -145,16 +155,20 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
                 };
                 output.push_str(&format!(
                     "{} :{}: {} <br>",
-                    message.time_stamp.with_timezone(&Pacific), hashed, escaped
+                    message.time_stamp.with_timezone(&Pacific),
+                    hashed,
+                    escaped
                 ));
             });
         }
         output
     };
     let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
-    let metrics_button = "<button onclick=\"window.location.href=\'/admin/metrics\';\">Metrics</button>";
+    let metrics_button =
+        "<button onclick=\"window.location.href=\'/admin/metrics\';\">Metrics</button>";
     let view_cooldown_button = "<button onclick=\"window.location.href=\'/admin/view_cooldown\';\">View Cooldowns</button>";
-    let view_hashes_button = "<button onclick=\"window.location.href=\'/admin/view_hashes\';\">View Hashes</button>";
+    let view_hashes_button =
+        "<button onclick=\"window.location.href=\'/admin/view_hashes\';\">View Hashes</button>";
     let banned_ips = format!("{:?}", state.banned_ips.read().unwrap());
 
     RawHtml(
