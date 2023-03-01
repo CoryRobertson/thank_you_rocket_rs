@@ -17,9 +17,7 @@ pub struct Metrics {}
 /// simply the number of requests they have sent to the server.
 pub struct UserMetric {
     pub request_count: u64,
-    // TODO: add all of the login hashes they have ever used, as well as the time and date they last made a request.
-    //  Make both of these new additions Option<> types so that old states can still be used with this.
-    //  Time should probably be a chrono data time
+    pub logins: Option<Vec<String>>,
 }
 
 /// Function that checks if the given ip address is banned
@@ -79,7 +77,7 @@ impl Fairing for Metrics {
                     let mut lock = state.unique_users.write().unwrap();
                     match lock.get_mut(&ip.ip().to_string()) {
                         None => {
-                            lock.insert(ip.ip().to_string(), UserMetric { request_count: 1 });
+                            lock.insert(ip.ip().to_string(), UserMetric { request_count: 1, logins: Some(vec![]) });
                         }
                         Some(metric) => {
                             metric.request_count += 1;

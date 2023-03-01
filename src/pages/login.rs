@@ -11,6 +11,8 @@ use rocket::response::Redirect;
 use rocket::{Request, State};
 use std::fs::File;
 use std::io::{Read, Write};
+use std::net::SocketAddr;
+use crate::metrics::UserMetric;
 
 lazy_static! {
     /// static ref to the salt being used by the program to hash passwords.
@@ -79,7 +81,7 @@ pub fn logout(jar: &CookieJar) -> Redirect {
 
 #[post("/login", data = "<password>")]
 /// Login post request route, hashes the password given, then stores it in a cookie with a key of "login"
-pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState>) -> Redirect {
+pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState>,req: SocketAddr) -> Redirect {
     let a2 = Argon2::default();
     let salt = &SALT;
     let hash_password = a2
@@ -89,6 +91,26 @@ pub fn login_post(password: Form<Login>, jar: &CookieJar, state: &State<TYRState
     let cookie =
         Cookie::build("login", hash_password.hash.unwrap().to_string()).same_site(SameSite::Strict);
     jar.add(cookie.finish());
+
+    let ip = &req.ip().to_string();
+    match state.unique_users.write().unwrap().get_mut(ip) {
+        None => {}
+        Some(user_metric) => {
+
+            match &mut user_metric.logins {
+                None => {
+                    user_metric.logins = Some(vec![hash_password.hash.unwrap().to_string()]);
+                }
+                Some(logins) => {
+                    if !logins.contains(&hash_password.hash.unwrap().to_string()) {
+                        logins.push(hash_password.hash.unwrap().to_string());
+                    }
+                }
+            }
+
+        }
+    };
+
 
     let admin_exists: bool = { state.admin_state.read().unwrap().admin_created }; // state for if an admin exists
 

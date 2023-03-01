@@ -88,6 +88,7 @@ fn rocket() -> Rocket<Build> {
                 admin_metrics,
                 ban_ip,
                 view_cooldown,
+                view_hashes,
             ],
         )
         .register("/", catchers![not_found])
