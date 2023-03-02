@@ -32,7 +32,7 @@ impl<'r> FromRequest<'r> for IsAdminGuard {
                 .contains(&login_cookie.value().to_string())
             {
                 // if the login cookie hash is one of the admin hashes, allow the user to proceed.
-                return Outcome::Success(IsAdminGuard(login_cookie.value().to_string()));
+                return Outcome::Success(Self(login_cookie.value().to_string()));
             }
         }
         Outcome::Forward(())
@@ -131,7 +131,7 @@ pub fn view_cooldown(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtm
             br;
             br;
             p {"[IP: Time Left]"}
-            (cooldown_users_string)
+            (PreEscaped(cooldown_users_string))
         }
         .into_string(),
     )
