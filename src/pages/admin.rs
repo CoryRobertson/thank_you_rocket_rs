@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use crate::common::is_ip_valid;
 use crate::state_management::{save_program_state, TYRState};
 use crate::user::User;
@@ -12,6 +13,7 @@ use rocket::response::Redirect;
 use rocket::{request, Request, State};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
+use crate::metrics::UserMetric;
 
 #[derive(Default)]
 /// Request guard that requires an admin cookie.
@@ -78,7 +80,26 @@ pub fn view_hashes(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<
 
     let mut login_hashes_string = String::new();
 
-    for (ip, user) in read_lock.iter() {
+    let mut logins: Vec<(&String, &UserMetric)> = vec![];
+
+    for thing in read_lock.iter() {
+        logins.push(thing);
+    }
+
+    logins.sort_by(|thing, thing2| {
+        match (&thing.1.logins,&thing2.1.logins) {
+            (Some(logins1), Some(logins2)) => {
+                logins1.len().partial_cmp(&logins2.len()).unwrap()
+            },
+            (Some(_), None) => { Ordering::Greater },
+            (None, Some(_)) => { Ordering::Less },
+            (None,None) => { Ordering::Equal },
+        }
+    });
+
+    logins.reverse();
+
+    for (ip, user) in logins {
         let hashes = {
             match &user.logins {
                 None => "".to_string(),
