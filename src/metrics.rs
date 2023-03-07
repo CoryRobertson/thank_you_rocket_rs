@@ -15,9 +15,13 @@ pub struct Metrics {}
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 /// A struct that contains the data each user will carry as we track their metrics, at the moment
 /// simply the number of requests they have sent to the server.
+/// A user is unique to each ip, not device or computer.
 pub struct UserMetric {
     pub request_count: u64,
     pub logins: Option<Vec<String>>,
+    // TODO: add a "last seen time" System Time object that stores the last time this user has been on the website.
+    //  Eventually display this data in the form of how many people have been on the web page in the last 10 minutes on the index page
+    //  Could be something like "10 users currently online." or something.
 }
 
 /// Function that checks if the given ip address is banned
