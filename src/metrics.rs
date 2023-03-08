@@ -7,21 +7,20 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
+use std::time::SystemTime;
 
 /// A struct handles metrics capturing, this struct is purely a function only implementation struct, and contains no data itself.
 /// It takes a reference to the rockets managed state "TYRState" when it needs to modify data.
 pub struct Metrics {}
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
 /// A struct that contains the data each user will carry as we track their metrics, at the moment
 /// simply the number of requests they have sent to the server.
 /// A user is unique to each ip, not device or computer.
 pub struct UserMetric {
     pub request_count: u64,
     pub logins: Option<Vec<String>>,
-    // TODO: add a "last seen time" System Time object that stores the last time this user has been on the website.
-    //  Eventually display this data in the form of how many people have been on the web page in the last 10 minutes on the index page
-    //  Could be something like "10 users currently online." or something.
+    pub last_time_seen: Option<SystemTime>,
 }
 
 /// Function that checks if the given ip address is banned
@@ -86,11 +85,15 @@ impl Fairing for Metrics {
                                 UserMetric {
                                     request_count: 1,
                                     logins: Some(vec![]),
+                                    last_time_seen: Some(SystemTime::now()),
                                 },
                             );
                         }
                         Some(metric) => {
+                            // when ever we see a user, add one to their request count
                             metric.request_count += 1;
+                            // when ever we see a user, update their last time seen.
+                            metric.last_time_seen = Some(SystemTime::now());
                         }
                     };
                     spawn(save_metrics(lock.clone()));

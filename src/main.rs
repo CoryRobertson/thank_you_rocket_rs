@@ -32,6 +32,10 @@ pub static POST_COOLDOWN: u64 = 5;
 #[cfg(not(debug_assertions))]
 pub static POST_COOLDOWN: u64 = 3600;
 
+/// The duration in seconds that a user is considered "online" from their last time they have been seen on the website.
+/// Used to calculate the number of online users.
+pub static ONLINE_TIMER: u64 = 600;
+
 /// The maximum length of a message that can be left by a user.
 pub static MESSAGE_LENGTH_CAP: usize = 150;
 

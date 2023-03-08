@@ -11,7 +11,7 @@ pub struct NewMessage {
     pub msg: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 /// A message is a struct that contains the time they sent that individual message, as well as the text of the message itself.
 pub struct Message {
     pub text: String,

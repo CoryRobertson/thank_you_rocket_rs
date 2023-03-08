@@ -6,7 +6,7 @@ use rocket::http::Cookie;
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 /// A user struct is a the value portion of a hashmap with a key of an ip address, struct contains a timestamp of the time they last posted, and a vector of all their messages.
 pub struct User {
     pub messages: Vec<Message>,
@@ -16,7 +16,7 @@ pub struct User {
 impl Default for User {
     /// Default user is a timestamp that is taken immediately and an empty message struct.
     fn default() -> Self {
-        User {
+        Self {
             messages: vec![],
             last_time_post: SystemTime::now(),
         }
@@ -25,8 +25,8 @@ impl Default for User {
 
 impl User {
     /// Create a new user from a list of messages, time of last post established
-    pub(crate) fn new(message: Message) -> User {
-        User {
+    pub(crate) fn new(message: Message) -> Self {
+        Self {
             messages: vec![message],
             last_time_post: SystemTime::now(),
         }
@@ -54,7 +54,6 @@ impl User {
     /// Returns true if the user has already sent this message before, only checks text
     /// Returns false if the user has not sent this message
     pub(crate) fn is_dupe_message(&self, msg: &Form<NewMessage>) -> bool {
-        let messages: Vec<&String> = self.messages.iter().map(|msg| &msg.text).collect();
-        messages.contains(&&msg.msg)
+        self.messages.iter().map(|msg| &msg.text).any(|x| x == &msg.msg)
     }
 }

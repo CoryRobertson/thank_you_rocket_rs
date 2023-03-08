@@ -1,6 +1,6 @@
 use crate::pages::login::login;
-use crate::TYRState;
 use crate::VERSION;
+use crate::{TYRState, ONLINE_TIMER};
 use maud::html;
 use maud::PreEscaped;
 use maud::DOCTYPE;
@@ -9,6 +9,7 @@ use rocket::http::CookieJar;
 use rocket::response::content::RawHtml;
 use rocket::State;
 use std::net::SocketAddr;
+use std::time::SystemTime;
 
 #[get("/")]
 /// Base page that the web page loads to, contains buttons that take you to various other pages.
@@ -43,6 +44,33 @@ pub fn index(_req: SocketAddr, state: &State<TYRState>, jar: &CookieJar) -> RawH
         }
     };
 
+    let is_logged_in = { jar.get("login").is_some() };
+
+    let online_user_count = {
+        state
+            .unique_users
+            .read()
+            .unwrap()
+            .iter()
+            .filter_map(|user_metric| user_metric.1.last_time_seen)
+            .filter(|last_time| {
+                SystemTime::now()
+                    .duration_since(*last_time)
+                    .unwrap_or_default()
+                    .as_secs()
+                    <= ONLINE_TIMER
+            })
+            .count()
+    };
+
+    let online_user_text = {
+        if online_user_count == 1 {
+            format!("There is currently {} user online!", online_user_count)
+        } else {
+            format!("There is currently {} users online!", online_user_count)
+        }
+    };
+
     RawHtml(html! {
         (DOCTYPE)
         title {"Thank you rocket!"}
@@ -51,13 +79,18 @@ pub fn index(_req: SocketAddr, state: &State<TYRState>, jar: &CookieJar) -> RawH
         p {"You can write a message, viewable only to people from the same ip address as the user who sent the message, and myself, the website host."}
         p {"Optionally, you can also \"login\" which makes messages you write only visible to people who type the same password, the website host."}
         p {"Feel free to write a message if anything I have made was interesting to you, or if I helped in any sort of way. :)"}
+        p {(online_user_text)}
 
-        a href="/login" {"login"}
+        @if !is_logged_in {
+            a href="/login" {"login"}
+        }
+        @if is_logged_in {
+            a href="/logout" {"logout"}
+        }
+
         br;
         br;
-        a href="/logout" {"logout"}
-        br;
-        br;
+
         @if is_admin {
             a href="/admin" {"Admin Panel"}
         }

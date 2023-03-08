@@ -34,7 +34,7 @@ pub struct TYRState {
 impl TYRState {
     /// Reads a StateSave object, producing a TYRState object.
     pub fn from_state_save(state_save: StateSave) -> Self {
-        TYRState {
+        Self {
             messages: Arc::new(RwLock::new(state_save.messages)),
             banned_ips: Arc::new(RwLock::new(state_save.banned_ips.unwrap_or_default())),
             admin_state: Arc::new(RwLock::new(state_save.admin_state.unwrap_or_default())),
@@ -43,7 +43,7 @@ impl TYRState {
     }
 }
 
-#[derive(Default, Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Default, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 /// A struct that stores if an admin has been created, and a vector of hashes of passwords that an admin can use to login.
 pub struct AdminState {
     pub admin_created: bool,
@@ -53,7 +53,7 @@ pub struct AdminState {
 impl Default for TYRState {
     /// Default message struct is just an empty hash map.
     fn default() -> Self {
-        TYRState {
+        Self {
             messages: Arc::new(RwLock::new(HashMap::new())),
             banned_ips: Arc::new(RwLock::new(Default::default())),
             admin_state: Arc::from(RwLock::from(AdminState::default())),
@@ -200,6 +200,7 @@ mod test {
             UserMetric {
                 request_count: 44,
                 logins: None,
+                last_time_seen: None,
             },
         );
         state.unique_users.write().unwrap().insert(
@@ -207,6 +208,7 @@ mod test {
             UserMetric {
                 request_count: 55,
                 logins: None,
+                last_time_seen: None,
             },
         );
         state
