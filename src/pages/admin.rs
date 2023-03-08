@@ -54,7 +54,14 @@ pub fn admin_metrics(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtm
 
     let metrics_string = {
         let mut output = String::new();
-        for (ip, user_metric) in unique_users_lock.iter() {
+        let mut user_metrics_vector = unique_users_lock.iter()
+            .collect::<Vec<(&String,&UserMetric)>>();
+
+        user_metrics_vector.sort_by(|entry, second_entry| {
+            second_entry.1.request_count.partial_cmp(&entry.1.request_count).unwrap()
+        });
+
+        for (ip, user_metric) in user_metrics_vector {
             output.push_str(&format!("[{}]: {} <br>", ip, user_metric.request_count));
         }
         output
