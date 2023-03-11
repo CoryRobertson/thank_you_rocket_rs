@@ -25,6 +25,8 @@ pub fn submit_message(
         return Redirect::to(uri!("/error_message")); // only allow user to use ascii text in their message
     }
 
+    // TODO: optionally whitelist an ip address that removes the ascii and message length cap. Whitelist modified through admin page.
+
     if message.msg.len() > MESSAGE_LENGTH_CAP {
         return Redirect::to(uri!("/too_long")); // early return and tell the user to write shorter messages
     }
