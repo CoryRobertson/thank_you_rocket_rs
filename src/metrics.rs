@@ -21,6 +21,7 @@ pub struct UserMetric {
     pub request_count: u64,
     pub logins: Option<Vec<String>>,
     pub last_time_seen: Option<SystemTime>,
+    pub last_page_visited: Option<String>,
 }
 
 /// Function that checks if the given ip address is banned
@@ -65,6 +66,10 @@ impl Fairing for Metrics {
     async fn on_request(&self, req: &mut Request<'_>, _data: &mut Data<'_>) {
         let state = req.rocket().state::<TYRState>().unwrap();
 
+        let uri = req.uri();
+
+        // println!("URI: {}", uri);
+
         match req.remote() {
             None => {
                 // if somehow we don't get a remote url, direct them to an error page
@@ -86,6 +91,7 @@ impl Fairing for Metrics {
                                     request_count: 1,
                                     logins: Some(vec![]),
                                     last_time_seen: Some(SystemTime::now()),
+                                    last_page_visited: Some(uri.to_string()),
                                 },
                             );
                         }
@@ -94,7 +100,7 @@ impl Fairing for Metrics {
                             metric.request_count += 1;
                             // when ever we see a user, update their last time seen.
                             metric.last_time_seen = Some(SystemTime::now());
-                            // TODO: add last url navigated to, store as string on usermetric, optionally.
+                            metric.last_page_visited = Some(uri.to_string());
                         }
                     };
                     spawn(save_metrics(lock.clone()));

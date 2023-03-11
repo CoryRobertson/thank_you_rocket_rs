@@ -42,7 +42,7 @@ impl<'r> FromRequest<'r> for IsAdminGuard {
 }
 
 #[get("/admin/metrics")]
-/// Admin only page for viewing metrics of the site.
+/// Admin only page for viewing metrics of the site. Includes ip of user, request count, and last page visited.
 pub fn admin_metrics(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
     let unique_users_lock = state.unique_users.read().unwrap();
 
@@ -54,15 +54,29 @@ pub fn admin_metrics(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtm
 
     let metrics_string = {
         let mut output = String::new();
-        let mut user_metrics_vector = unique_users_lock.iter()
-            .collect::<Vec<(&String,&UserMetric)>>();
+        let mut user_metrics_vector = unique_users_lock
+            .iter()
+            .collect::<Vec<(&String, &UserMetric)>>();
 
         user_metrics_vector.sort_by(|entry, second_entry| {
-            second_entry.1.request_count.partial_cmp(&entry.1.request_count).unwrap()
+            second_entry
+                .1
+                .request_count
+                .partial_cmp(&entry.1.request_count)
+                .unwrap()
         });
 
         for (ip, user_metric) in user_metrics_vector {
-            output.push_str(&format!("[{}]: {} <br>", ip, user_metric.request_count));
+
+            let last_page_visited = match &user_metric.last_page_visited {
+                None => { "".to_string() }
+                Some(url) => { url.to_string() }
+            };
+
+            output.push_str(&format!(
+                "[{}]: {} : {} <br>",
+                ip, user_metric.request_count, last_page_visited
+            ));
         }
         output
     };
@@ -162,7 +176,7 @@ pub fn view_cooldown(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtm
 }
 
 #[get("/admin/view_online")]
-/// An admin only page that displays all users who are currently on cooldown.
+/// An admin only page that displays all users who are currently on cooldown, as well as the last navigated page for that user.
 pub fn view_online(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
     let read_lock = state.unique_users.read().unwrap();
     let users_online = read_lock
@@ -175,11 +189,28 @@ pub fn view_online(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<
                 .as_secs()
                 <= ONLINE_TIMER
         })
-        .collect::<Vec<(&String,&UserMetric)>>();
+        .collect::<Vec<(&String, &UserMetric)>>();
+
+
 
     let mut online_users_string = String::new();
-    for (ip,user) in users_online {
-        online_users_string.push_str(&format!("{}: {} <br>", &ip, SystemTime::now().duration_since(*&user.last_time_seen.unwrap()).unwrap().as_secs()));
+    for (ip, user) in users_online {
+
+        let last_page_visited = match &user.last_page_visited {
+            None => { "".to_string() }
+            Some(url) => { url.to_string() }
+        };
+
+        online_users_string.push_str(&format!(
+            "{}: {} : {} <br>",
+            &ip,
+            SystemTime::now()
+                .duration_since(*&user.last_time_seen.unwrap())
+                .unwrap()
+                .as_secs(),
+            last_page_visited,
+
+        ));
     }
 
     let back_button = "<button onclick=\"window.location.href=\'/admin\';\">Go back</button>";
@@ -192,7 +223,7 @@ pub fn view_online(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<
             p {"[IP: Last Time Seen]"}
             (PreEscaped(online_users_string))
         }
-            .into_string(),
+        .into_string(),
     )
 }
 

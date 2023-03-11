@@ -54,6 +54,9 @@ impl User {
     /// Returns true if the user has already sent this message before, only checks text
     /// Returns false if the user has not sent this message
     pub(crate) fn is_dupe_message(&self, msg: &Form<NewMessage>) -> bool {
-        self.messages.iter().map(|msg| &msg.text).any(|x| x == &msg.msg)
+        self.messages
+            .iter()
+            .map(|msg| &msg.text)
+            .any(|x| x == &msg.msg)
     }
 }
