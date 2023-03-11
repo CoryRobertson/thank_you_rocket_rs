@@ -94,6 +94,7 @@ impl Fairing for Metrics {
                             metric.request_count += 1;
                             // when ever we see a user, update their last time seen.
                             metric.last_time_seen = Some(SystemTime::now());
+                            // TODO: add last url navigated to, store as string on usermetric, optionally.
                         }
                     };
                     spawn(save_metrics(lock.clone()));
