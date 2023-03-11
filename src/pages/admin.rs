@@ -2,7 +2,7 @@ use crate::common::is_ip_valid;
 use crate::metrics::UserMetric;
 use crate::state_management::{save_program_state, TYRState};
 use crate::user::User;
-use crate::POST_COOLDOWN;
+use crate::{ONLINE_TIMER, POST_COOLDOWN};
 use chrono_tz::US::Pacific;
 use maud::{html, PreEscaped};
 use rocket::form::Form;
@@ -161,6 +161,41 @@ pub fn view_cooldown(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtm
     )
 }
 
+#[get("/admin/view_online")]
+/// An admin only page that displays all users who are currently on cooldown.
+pub fn view_online(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
+    let read_lock = state.unique_users.read().unwrap();
+    let users_online = read_lock
+        .iter()
+        .filter(|user| user.1.last_time_seen.is_some())
+        .filter(|user| {
+            SystemTime::now()
+                .duration_since(user.1.last_time_seen.unwrap())
+                .unwrap_or_default()
+                .as_secs()
+                <= ONLINE_TIMER
+        })
+        .collect::<Vec<(&String,&UserMetric)>>();
+
+    let mut online_users_string = String::new();
+    for (ip,user) in users_online {
+        online_users_string.push_str(&format!("{}: {} <br>", &ip, SystemTime::now().duration_since(*&user.last_time_seen.unwrap()).unwrap().as_secs()));
+    }
+
+    let back_button = "<button onclick=\"window.location.href=\'/admin\';\">Go back</button>";
+
+    RawHtml(
+        html! {
+            (PreEscaped(back_button))
+            br;
+            br;
+            p {"[IP: Last Time Seen]"}
+            (PreEscaped(online_users_string))
+        }
+            .into_string(),
+    )
+}
+
 #[get("/admin")]
 /// Admin only page for displaying all messages sent to the server, as well as a few tools.
 pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
@@ -193,6 +228,8 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
     let view_cooldown_button = "<button onclick=\"window.location.href=\'/admin/view_cooldown\';\">View Cooldowns</button>";
     let view_hashes_button =
         "<button onclick=\"window.location.href=\'/admin/view_hashes\';\">View Hashes</button>";
+    let view_online_button =
+        "<button onclick=\"window.location.href=\'/admin/view_online\';\">View Online Users</button>";
     let banned_ips = format!("{:?}", state.banned_ips.read().unwrap());
 
     RawHtml(
@@ -228,6 +265,7 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
             (PreEscaped(metrics_button))
             (PreEscaped(view_cooldown_button))
             (PreEscaped(view_hashes_button))
+            (PreEscaped(view_online_button))
             br;
             br;
             (PreEscaped(message_list))
