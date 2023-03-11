@@ -67,10 +67,9 @@ pub fn admin_metrics(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtm
         });
 
         for (ip, user_metric) in user_metrics_vector {
-
             let last_page_visited = match &user_metric.last_page_visited {
-                None => { "".to_string() }
-                Some(url) => { url.to_string() }
+                None => "".to_string(),
+                Some(url) => url.to_string(),
             };
 
             output.push_str(&format!(
@@ -191,25 +190,21 @@ pub fn view_online(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<
         })
         .collect::<Vec<(&String, &UserMetric)>>();
 
-
-
     let mut online_users_string = String::new();
     for (ip, user) in users_online {
-
         let last_page_visited = match &user.last_page_visited {
-            None => { "".to_string() }
-            Some(url) => { url.to_string() }
+            None => "".to_string(),
+            Some(url) => url.to_string(),
         };
 
         online_users_string.push_str(&format!(
             "{}: {} : {} <br>",
             &ip,
             SystemTime::now()
-                .duration_since(*&user.last_time_seen.unwrap())
+                .duration_since(user.last_time_seen.unwrap())
                 .unwrap()
                 .as_secs(),
             last_page_visited,
-
         ));
     }
 
