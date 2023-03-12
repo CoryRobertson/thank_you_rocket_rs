@@ -1,4 +1,5 @@
 use crate::pages::login::login;
+use crate::verified_guard::GetVerifiedGuard;
 use crate::VERSION;
 use crate::{TYRState, ONLINE_TIMER};
 use maud::html;
@@ -13,7 +14,12 @@ use std::time::SystemTime;
 
 #[get("/")]
 /// Base page that the web page loads to, contains buttons that take you to various other pages.
-pub fn index(_req: SocketAddr, state: &State<TYRState>, jar: &CookieJar) -> RawHtml<String> {
+pub fn index(
+    _req: SocketAddr,
+    state: &State<TYRState>,
+    jar: &CookieJar,
+    is_verified: GetVerifiedGuard,
+) -> RawHtml<String> {
     // TODO: make these links for buttons open in a new tab, not in current tab.
 
     if !state.admin_state.read().unwrap().admin_created {
@@ -42,6 +48,11 @@ pub fn index(_req: SocketAddr, state: &State<TYRState>, jar: &CookieJar) -> RawH
                 "Logged in.".to_string()
             }
         }
+    };
+
+    let is_verified_text = match is_verified.0 {
+        true => "Verified Ip Address.",
+        false => "",
     };
 
     let is_logged_in = { jar.get("login").is_some() };
@@ -84,6 +95,7 @@ pub fn index(_req: SocketAddr, state: &State<TYRState>, jar: &CookieJar) -> RawH
         @if !is_logged_in {
             a href="/login" {"login"}
         }
+
         @if is_logged_in {
             a href="/logout" {"logout"}
         }
@@ -94,7 +106,12 @@ pub fn index(_req: SocketAddr, state: &State<TYRState>, jar: &CookieJar) -> RawH
         @if is_admin {
             a href="/admin" {"Admin Panel"}
         }
+
         p { (login_info) }
+
+        @if is_verified.0 {
+            p { (is_verified_text) }
+        }
 
         (PreEscaped("<button onclick=\"window.location.href=\'/new\';\">Write a message</button>"))
         br;

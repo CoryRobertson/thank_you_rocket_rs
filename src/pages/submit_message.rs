@@ -1,6 +1,7 @@
 use crate::message::{Message, NewMessage};
 use crate::state_management::save_program_state;
 use crate::user::User;
+use crate::verified_guard::GetVerifiedGuard;
 use crate::TYRState;
 use crate::{MESSAGE_LENGTH_CAP, MESSAGE_LENGTH_MIN};
 use chrono::Utc;
@@ -18,21 +19,22 @@ pub fn submit_message(
     req: SocketAddr,
     state: &State<TYRState>,
     jar: &CookieJar,
+    is_verified: GetVerifiedGuard,
 ) -> Redirect {
     let user_ip = &req.ip().to_string();
 
-    if !message.msg.is_ascii() {
-        return Redirect::to(uri!("/error_message")); // only allow user to use ascii text in their message
-    }
+    if !is_verified.0 {
+        if !message.msg.is_ascii() {
+            return Redirect::to(uri!("/error_message")); // only allow user to use ascii text in their message
+        }
 
-    // TODO: optionally whitelist an ip address that removes the ascii and message length cap. Whitelist modified through admin page.
+        if message.msg.len() > MESSAGE_LENGTH_CAP {
+            return Redirect::to(uri!("/too_long")); // early return and tell the user to write shorter messages
+        }
 
-    if message.msg.len() > MESSAGE_LENGTH_CAP {
-        return Redirect::to(uri!("/too_long")); // early return and tell the user to write shorter messages
-    }
-
-    if message.msg.len() < MESSAGE_LENGTH_MIN {
-        return Redirect::to(uri!("/too_short")); // early return to tell the user their message is too short
+        if message.msg.len() < MESSAGE_LENGTH_MIN {
+            return Redirect::to(uri!("/too_short")); // early return to tell the user their message is too short
+        }
     }
 
     {

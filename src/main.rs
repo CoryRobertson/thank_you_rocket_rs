@@ -23,6 +23,7 @@ mod metrics;
 mod pages;
 mod state_management;
 mod user;
+mod verified_guard;
 
 /// The duration in seconds that a user must wait between each message. debug only
 #[cfg(debug_assertions)]

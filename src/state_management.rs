@@ -48,6 +48,7 @@ impl TYRState {
 pub struct AdminState {
     pub admin_created: bool,
     pub admin_hashes: Vec<String>,
+    pub verified_ip_addressed: Option<Vec<String>>,
 }
 
 impl Default for TYRState {
@@ -201,6 +202,7 @@ mod test {
                 request_count: 44,
                 logins: None,
                 last_time_seen: None,
+                last_page_visited: None,
             },
         );
         state.unique_users.write().unwrap().insert(
@@ -209,6 +211,7 @@ mod test {
                 request_count: 55,
                 logins: None,
                 last_time_seen: None,
+                last_page_visited: None,
             },
         );
         state

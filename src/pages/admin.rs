@@ -258,6 +258,13 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
         "<button onclick=\"window.location.href=\'/admin/view_online\';\">View Online Users</button>";
     let banned_ips = format!("{:?}", state.banned_ips.read().unwrap());
 
+    let verified_ips = match &state.admin_state.read().unwrap().verified_ip_addressed {
+        None => "".to_string(),
+        Some(list) => {
+            format!("{:?}", list)
+        }
+    };
+
     RawHtml(
         html! {
             p {"you are an admin!"}
@@ -274,13 +281,23 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
                     <input type="radio" id="unban" name="ip_action" value="Unban">
                     <label for="unban">Unban</label><br>
                     <input type="radio" id="reset_cooldown" name="ip_action" value="ResetCooldown">
-                    <label for="reset_cooldown">Reset Cooldown</label>
-                    <br>
+                    <label for="reset_cooldown">Reset Cooldown</label><br>
+                    <input type="radio" id="add_verified" name="ip_action" value="AddVerified">
+                    <label for="add_verified">Add Verified</label><br>
+                    <input type="radio" id="remove_verified" name="ip_action" value="RemoveVerified">
+                    <label for="remove_verified">Remove Verified</label><br>
+
 
                     <input type="submit" value="Submit Ip">
                 </form>
                 "#
             ))
+
+            br;
+            ("Verified ips:")
+            br;
+            (verified_ips)
+            br;
             br;
             ("Banned ips:")
             br;
@@ -306,6 +323,8 @@ pub enum IpAction {
     Ban,
     Unban,
     ResetCooldown,
+    AddVerified,
+    RemoveVerified,
 }
 
 #[derive(FromForm, Debug, Clone)]
@@ -328,6 +347,7 @@ pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) ->
                 for (index, loop_ip) in banned_ips.iter().enumerate() {
                     if loop_ip.eq(&ip.ip) {
                         state.banned_ips.write().unwrap().remove(index);
+                        break;
                     }
                 }
             }
@@ -337,6 +357,30 @@ pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) ->
                     user.last_time_post = UNIX_EPOCH;
                 }
             },
+            IpAction::AddVerified => {
+                let mut lock = state.admin_state.write().unwrap();
+                match lock.verified_ip_addressed.as_mut() {
+                    None => {
+                        lock.verified_ip_addressed = Some(vec![ip.ip.to_string()]);
+                    }
+                    Some(list) => {
+                        list.push(ip.ip.to_string());
+                    }
+                }
+            }
+            IpAction::RemoveVerified => {
+                let mut lock = state.admin_state.write().unwrap();
+                match lock.verified_ip_addressed.as_mut() {
+                    None => {}
+                    Some(list) => {
+                        for (index, ip_in_list) in list.clone().iter().enumerate() {
+                            if ip_in_list.eq(&ip.ip.to_string()) {
+                                list.remove(index);
+                            }
+                        }
+                    }
+                }
+            }
         }
         save_program_state(state, &PathBuf::from("./output/state.ser"));
     }
