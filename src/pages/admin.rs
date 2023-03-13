@@ -258,7 +258,7 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
         "<button onclick=\"window.location.href=\'/admin/view_online\';\">View Online Users</button>";
     let banned_ips = format!("{:?}", state.banned_ips.read().unwrap());
 
-    let verified_ips = match &state.admin_state.read().unwrap().verified_ip_addressed {
+    let verified_list = match &state.admin_state.read().unwrap().verified_list {
         None => "".to_string(),
         Some(list) => {
             format!("{:?}", list)
@@ -294,9 +294,9 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
             ))
 
             br;
-            ("Verified ips:")
+            ("Verified list:")
             br;
-            (verified_ips)
+            (verified_list)
             br;
             br;
             ("Banned ips:")
@@ -359,9 +359,9 @@ pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) ->
             },
             IpAction::AddVerified => {
                 let mut lock = state.admin_state.write().unwrap();
-                match lock.verified_ip_addressed.as_mut() {
+                match lock.verified_list.as_mut() {
                     None => {
-                        lock.verified_ip_addressed = Some(vec![ip.ip.to_string()]);
+                        lock.verified_list = Some(vec![ip.ip.to_string()]);
                     }
                     Some(list) => {
                         list.push(ip.ip.to_string());
@@ -370,7 +370,7 @@ pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) ->
             }
             IpAction::RemoveVerified => {
                 let mut lock = state.admin_state.write().unwrap();
-                match lock.verified_ip_addressed.as_mut() {
+                match lock.verified_list.as_mut() {
                     None => {}
                     Some(list) => {
                         for (index, ip_in_list) in list.clone().iter().enumerate() {

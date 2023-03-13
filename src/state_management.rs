@@ -48,7 +48,7 @@ impl TYRState {
 pub struct AdminState {
     pub admin_created: bool,
     pub admin_hashes: Vec<String>,
-    pub verified_ip_addressed: Option<Vec<String>>,
+    pub verified_list: Option<Vec<String>>,
 }
 
 impl Default for TYRState {
@@ -117,8 +117,8 @@ pub fn save_program_state(messages: &State<TYRState>, path: &PathBuf) {
                 Ok(_) => {
                     // output dir now exists
                 }
-                Err(err) => {
-                    panic!("{err} \n unable to create output dir, check file permissions?")
+                Err(_err) => {
+                    panic!("{_err} \n unable to create output dir, check file permissions?")
                 }
             }
         }
