@@ -13,7 +13,7 @@ impl<'r> FromRequest<'r> for GetVerifiedGuard {
         let user_ip = req.client_ip().unwrap().to_string();
         let outcome: &State<TYRState> = req.guard::<&State<TYRState>>().await.unwrap();
 
-        match &outcome.admin_state.read().unwrap().verified_list {
+        return match &outcome.admin_state.read().unwrap().verified_list {
             None => Outcome::Success(Self(false)), // if no verified list exists, then clearly this user is not verified.
 
             Some(ver_list) => {
@@ -24,8 +24,8 @@ impl<'r> FromRequest<'r> for GetVerifiedGuard {
                         return Outcome::Success(Self(true));
                     }
                 }
-                return Outcome::Success(Self(ver_list.contains(&user_ip)));
+                Outcome::Success(Self(ver_list.contains(&user_ip)))
             }
-        }
+        };
     }
 }

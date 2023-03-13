@@ -14,9 +14,72 @@ pub fn is_ip_valid(ip: &str) -> bool {
     four_valid && period_count == 3
 }
 
+/// A struct intended to store a list of all of the requests a user has made, to a limit of <limit> number of requests.
+pub struct PreviousRequestsList {
+    list: Vec<String>,
+    limit: usize,
+}
+
+impl PreviousRequestsList {
+    /// Returns a new PreviousRequestsList with the given limit
+    pub fn new(limit: usize) -> Self {
+        Self {
+            list: vec![],
+            limit,
+        }
+    }
+
+    /// Returns the list of requests
+    pub fn get_list(&self) -> &Vec<String> {
+        &self.list
+    }
+
+    pub fn get(&self, index: usize) -> Option<&String> {
+        self.list.get(index)
+    }
+
+    /// Returns a mutable list of requests
+    // pub fn get_list_mut(&mut self) -> &mut Vec<String> {
+    //     &mut self.list
+    // }
+
+    /// Pushes new request string while respecting the limit of the PreviousRequestsList struct.
+    /// if the length of the list > the limit, then the oldest request is removed.
+    pub fn push(&mut self, request: &str) {
+        self.list.push(request.to_string());
+        if self.list.len() > self.limit {
+            self.list.remove(0);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_req_list() {
+        let mut list = PreviousRequestsList::new(4);
+
+        list.push("fake request 1");
+        list.push("fake request 2");
+        list.push("fake request 3");
+        list.push("fake request 4");
+
+        assert_eq!(list.get_list().len(), 4);
+
+        list.push("fake request 5");
+
+        assert_eq!(list.get_list().len(), 4);
+
+        assert_eq!(list.get(0).unwrap(), "fake request 2");
+        assert_eq!(list.get(1).unwrap(), "fake request 3");
+
+        list.push("fake request 6");
+
+        assert_eq!(list.get(0).unwrap(), "fake request 3");
+        assert_eq!(list.get(1).unwrap(), "fake request 4");
+    }
 
     #[test]
     fn test_valid_ips() {
