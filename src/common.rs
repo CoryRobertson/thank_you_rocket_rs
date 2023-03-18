@@ -26,7 +26,7 @@ impl PreviousRequestsList {
     /// Returns a new PreviousRequestsList with the given limit
     pub fn new(limit: usize) -> Self {
         Self {
-            list: vec![],
+            list: Vec::with_capacity(limit),
             limit,
         }
     }
