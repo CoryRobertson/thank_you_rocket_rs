@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 /// Checks if a given ip address is a valid ipv4, at the moment really basic in implementation.
 pub fn is_ip_valid(ip: &str) -> bool {
     // count how many periods exist in a given ip address, should be 3 e.g. 42.167.30.4 has three periods therefore is valid.
