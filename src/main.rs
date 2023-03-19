@@ -24,6 +24,10 @@ mod pages;
 mod state_management;
 mod user;
 mod verified_guard;
+//TODO: make a module similar to pastebin,  should be allow pasting using a web text box through a post request, something like "/paste/new/<paste_form_struct>"
+//  also needs a route to read a paste, pastes would be stored in a hashmap where a uuid of some kind is generated with a reference to the paste, and something like
+//  "/paste/view/<uuid>" would view them for the user. Make sure to escape text in some way, either by telling browser it should be text only, or by actually escaping the text.
+// these pastes should have a date and time they were created, as well as the ip and or the login of the user who created them.
 
 /// The duration in seconds that a user must wait between each message. debug only
 #[cfg(debug_assertions)]
