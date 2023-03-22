@@ -9,6 +9,7 @@ use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
+use crate::paste::Paste;
 
 #[derive(Serialize, Deserialize)]
 /// A serializable version of the TYRState struct, used only for saving.
@@ -29,6 +30,7 @@ pub struct TYRState {
     pub banned_ips: Arc<RwLock<Vec<String>>>, // vector full of all of the banned ips read from file at startup
     pub admin_state: Arc<RwLock<AdminState>>,
     pub unique_users: Arc<RwLock<HashMap<String, UserMetric>>>,
+    pub pastes: Arc<RwLock<HashMap<String, Paste>>>
 }
 
 impl TYRState {
@@ -39,6 +41,7 @@ impl TYRState {
             banned_ips: Arc::new(RwLock::new(state_save.banned_ips.unwrap_or_default())),
             admin_state: Arc::new(RwLock::new(state_save.admin_state.unwrap_or_default())),
             unique_users: Arc::new(RwLock::new(state_save.unique_users.unwrap_or_default())),
+            pastes: Arc::new(Default::default()),
         }
     }
 }
@@ -59,6 +62,7 @@ impl Default for TYRState {
             banned_ips: Arc::new(RwLock::new(Default::default())),
             admin_state: Arc::from(RwLock::from(AdminState::default())),
             unique_users: Arc::new(Default::default()),
+            pastes: Arc::new(Default::default()),
         }
     }
 }
@@ -188,6 +192,7 @@ mod test {
             banned_ips: Arc::new(Default::default()),
             admin_state: Arc::new(Default::default()),
             unique_users: Arc::new(Default::default()),
+            pastes: Arc::new(Default::default()),
         };
         state.admin_state.write().unwrap().admin_created = true;
         state
