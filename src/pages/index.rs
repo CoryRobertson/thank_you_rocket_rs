@@ -117,6 +117,8 @@ pub fn index(
         br;
         (PreEscaped("<button onclick=\"window.location.href=\'/view\';\">View written messages</button>"))
         br;
+        (PreEscaped("<button onclick=\"window.location.href=\'/paste/new\';\">Create paste</button>"))
+        br;
         h3 {"Browser Capable Projects:"}
         a href="/rhythm_rs" {"Rhythm Rs"}
         br;

@@ -222,6 +222,9 @@ pub fn view_online(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<
     )
 }
 
+// TODO: add a "view pastes" section where the admin can see a rendered link to all pastes with their text and hash
+//  Maybe something like "hash":"text", but limit the amount of text shown by some amount, maybe also have a html link as the hash text that takes you to the entire paste link.
+
 #[get("/admin")]
 /// Admin only page for displaying all messages sent to the server, as well as a few tools.
 pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {

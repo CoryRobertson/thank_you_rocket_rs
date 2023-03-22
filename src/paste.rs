@@ -3,18 +3,18 @@ use chrono::{DateTime, Local};
 use rocket::http::CookieJar;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Paste {
-    text: String,
+    pub text: String,
     // #[serde(with = "ts_seconds")]
-    post_time: DateTime<Local>,
-    ip_of_poster: String,
-    login_cookie_of_poster: Option<String>,
+    pub post_time: DateTime<Local>,
+    pub ip_of_poster: String,
+    pub login_cookie_of_poster: Option<String>,
+    // potentially add a file upload optional field for this struct.
 }
 
 impl Paste {
     pub fn new(text: String, req_socket: &SocketAddr, jar: &CookieJar) -> Self {
-
         Paste{
             text,
             post_time: Local::now(),

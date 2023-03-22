@@ -12,6 +12,7 @@ use crate::pages::outcome_pages::*;
 use crate::pages::submit_message::submit_message;
 use crate::pages::view::view;
 use crate::state_management::*;
+use crate::pages::post_paste::*;
 use rocket::fairing::AdHoc;
 use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
@@ -77,6 +78,8 @@ fn rocket() -> Rocket<Build> {
 
     println!("Loaded banned ips: {:?}", state.banned_ips.read().unwrap());
 
+    println!("Pastes: {:?}", state.pastes.read().unwrap());
+
     rocket::build()
         .manage(state)
         .mount(
@@ -101,6 +104,9 @@ fn rocket() -> Rocket<Build> {
                 view_cooldown,
                 view_hashes,
                 view_online,
+                new_paste,
+                new_paste_post,
+                view_paste,
             ],
         )
         .register("/", catchers![not_found])

@@ -14,15 +14,18 @@ use crate::paste::Paste;
 #[derive(Serialize, Deserialize)]
 /// A serializable version of the TYRState struct, used only for saving.
 /// Content in this state are persisted between launches.
+/// When adding new fields, modify TYRState::from_state_save() accordingly
 pub struct StateSave {
     pub messages: HashMap<String, User>,
     pub banned_ips: Option<Vec<String>>,
     pub admin_state: Option<AdminState>,
     pub unique_users: Option<HashMap<String, UserMetric>>,
+    pub pastes: Option<HashMap<u64, Paste>>,
 }
 
 /// The state struct for the rocket web frame work.
 /// Content in this struct but not in StateSave are not persisted.
+/// When adding new fields, modify TYRState::from_state_save() accordingly
 #[derive(Debug, Clone)]
 pub struct TYRState {
     // hash map consists of the ip address as a key, and the user struct itself.
@@ -30,18 +33,19 @@ pub struct TYRState {
     pub banned_ips: Arc<RwLock<Vec<String>>>, // vector full of all of the banned ips read from file at startup
     pub admin_state: Arc<RwLock<AdminState>>,
     pub unique_users: Arc<RwLock<HashMap<String, UserMetric>>>,
-    pub pastes: Arc<RwLock<HashMap<String, Paste>>>
+    pub pastes: Arc<RwLock<HashMap<u64, Paste>>>
 }
 
 impl TYRState {
     /// Reads a StateSave object, producing a TYRState object.
+    /// When adding new fields to the program state, modify this function.
     pub fn from_state_save(state_save: StateSave) -> Self {
         Self {
             messages: Arc::new(RwLock::new(state_save.messages)),
             banned_ips: Arc::new(RwLock::new(state_save.banned_ips.unwrap_or_default())),
             admin_state: Arc::new(RwLock::new(state_save.admin_state.unwrap_or_default())),
             unique_users: Arc::new(RwLock::new(state_save.unique_users.unwrap_or_default())),
-            pastes: Arc::new(Default::default()),
+            pastes: Arc::new(RwLock::new(state_save.pastes.unwrap_or_default())),
         }
     }
 }
@@ -78,6 +82,7 @@ pub fn load_state_save(path: &PathBuf) -> StateSave {
                 banned_ips: None,
                 admin_state: None,
                 unique_users: None,
+                pastes: None,
             };
         }
     };
@@ -92,6 +97,7 @@ pub fn load_state_save(path: &PathBuf) -> StateSave {
                 banned_ips: None,
                 admin_state: None,
                 unique_users: None,
+                pastes: None,
             };
         }
     }
@@ -105,6 +111,7 @@ pub fn load_state_save(path: &PathBuf) -> StateSave {
                 banned_ips: None,
                 admin_state: None,
                 unique_users: None,
+                pastes: None,
             }
         }
     }
@@ -135,6 +142,7 @@ pub fn save_program_state(messages: &State<TYRState>, path: &PathBuf) {
             banned_ips: Some(messages.banned_ips.read().unwrap().clone()),
             admin_state: Some(messages.admin_state.read().unwrap().clone()),
             unique_users: Some(messages.unique_users.read().unwrap().clone()),
+            pastes: Some(messages.pastes.read().unwrap().clone()),
         };
 
         let ser = serde_json::to_string(&state_save).unwrap();
