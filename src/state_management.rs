@@ -1,4 +1,5 @@
 use crate::metrics::UserMetric;
+use crate::paste::Paste;
 use crate::user::User;
 use chrono::{DateTime, Datelike, Local, Timelike};
 use rocket::State;
@@ -9,7 +10,6 @@ use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
-use crate::paste::Paste;
 
 #[derive(Serialize, Deserialize)]
 /// A serializable version of the TYRState struct, used only for saving.
@@ -33,7 +33,7 @@ pub struct TYRState {
     pub banned_ips: Arc<RwLock<Vec<String>>>, // vector full of all of the banned ips read from file at startup
     pub admin_state: Arc<RwLock<AdminState>>,
     pub unique_users: Arc<RwLock<HashMap<String, UserMetric>>>,
-    pub pastes: Arc<RwLock<HashMap<u64, Paste>>>
+    pub pastes: Arc<RwLock<HashMap<u64, Paste>>>,
 }
 
 impl TYRState {

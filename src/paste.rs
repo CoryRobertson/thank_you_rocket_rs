@@ -1,7 +1,7 @@
-use std::net::SocketAddr;
 use chrono::{DateTime, Local};
 use rocket::http::CookieJar;
 use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Paste {
@@ -15,17 +15,11 @@ pub struct Paste {
 
 impl Paste {
     pub fn new(text: String, req_socket: &SocketAddr, jar: &CookieJar) -> Self {
-        Paste{
+        Paste {
             text,
             post_time: Local::now(),
             ip_of_poster: req_socket.ip().to_string(),
-            login_cookie_of_poster: {
-                if let Some(cookie) = jar.get("login") {
-                    Some(cookie.to_string())
-                } else {
-                    None
-                }
-            },
+            login_cookie_of_poster: { jar.get("login").map(|cookie| cookie.to_string()) },
         }
     }
 }

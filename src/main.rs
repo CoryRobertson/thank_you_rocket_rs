@@ -9,10 +9,10 @@ use crate::pages::index::index;
 use crate::pages::login::*;
 use crate::pages::new::new;
 use crate::pages::outcome_pages::*;
+use crate::pages::post_paste::*;
 use crate::pages::submit_message::submit_message;
 use crate::pages::view::view;
 use crate::state_management::*;
-use crate::pages::post_paste::*;
 use rocket::fairing::AdHoc;
 use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
@@ -22,10 +22,10 @@ mod common;
 mod message;
 mod metrics;
 mod pages;
+mod paste;
 mod state_management;
 mod user;
 mod verified_guard;
-mod paste;
 
 //TODO: make a module similar to pastebin,  should be allow pasting using a web text box through a post request, something like "/paste/new/<paste_form_struct>"
 //  also needs a route to read a paste, pastes would be stored in a hashmap where a uuid of some kind is generated with a reference to the paste, and something like
