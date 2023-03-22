@@ -18,9 +18,11 @@ pub fn is_ip_valid(ip: &str) -> bool {
 
 /// A struct intended to store a list of all of the requests a user has made, to a limit of <limit> number of requests.
 pub struct PreviousRequestsList {
+    // TODO: use this struct to show a specific user metrics list. Maybe even have a route dedicated to each ip? aka "/admin/metrics/<ip_address>" ?
     list: Vec<String>,
     limit: usize,
 }
+
 
 impl PreviousRequestsList {
     /// Returns a new PreviousRequestsList with the given limit
