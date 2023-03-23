@@ -1,3 +1,4 @@
+use crate::pages::outcome_pages::paste_404;
 use crate::paste::Paste;
 use crate::TYRState;
 use maud::{html, PreEscaped};
@@ -40,8 +41,6 @@ pub fn new_paste_post(
     Redirect::to(uri)
 }
 
-
-
 #[get("/paste/view/<paste_id>")]
 /// Page for viewing created pastes.
 pub fn view_paste(paste_id: u64, _req: SocketAddr, state: &State<TYRState>) -> RawHtml<String> {
@@ -51,7 +50,7 @@ pub fn view_paste(paste_id: u64, _req: SocketAddr, state: &State<TYRState>) -> R
     //TODO: further test the quality of this escaping, just incase :)
 
     let escaped = match paste_opt {
-        None => "".to_string(),
+        None => paste_404(),
         Some(text_paste) => {
             let escaped = html_escape::encode_safe(&text_paste.text);
             escaped.replace("\r\n", "<br>").replace('\n', "<br>")

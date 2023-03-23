@@ -62,3 +62,9 @@ pub fn error_message() -> String {
 pub fn submit_message_no_data(_req: SocketAddr, _messages: &State<TYRState>) -> Redirect {
     Redirect::to(uri!("/new")) // user some how went to submit message, and there was no form data sent to the server, so we redirect them to the submit page.
 }
+
+#[get("/paste_404")]
+/// Route for if a paste does not exist
+pub fn paste_404() -> String {
+    "That paste does not exist.".to_string()
+}

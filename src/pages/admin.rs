@@ -390,5 +390,17 @@ pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) ->
     Redirect::to(uri!("/admin"))
 }
 
-// TODO: add the ability to delete a paste via "/paste/view/<paste_id>/delete"
-//  Simply checks for isAdminGuard and deletes the paste from the hash map
+#[get("/paste/view/<paste_id>/delete")]
+/// Route for deleting a paste, this is forceful and requires administration rights.
+/// The paste is either deleted, or if it does not exist, a 404 error is returned.
+pub fn force_delete_paste(
+    paste_id: u64,
+    state: &State<TYRState>,
+    _is_admin_guard: IsAdminGuard,
+) -> Redirect {
+    let mut lock = state.pastes.write().unwrap();
+    return match lock.remove(&paste_id) {
+        None => Redirect::to(uri!("/paste_404")),
+        Some(_paste) => Redirect::to(uri!("/admin")),
+    };
+}
