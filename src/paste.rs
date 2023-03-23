@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Paste {
-    pub text: String,
+    pub text: String, // TODO: replace this text field with a content field that is a enum that contains either a string of text called plaintext or a file of data called a file.
     // #[serde(with = "ts_seconds")]
     pub post_time: DateTime<Local>,
     pub ip_of_poster: String,
