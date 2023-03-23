@@ -389,3 +389,6 @@ pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) ->
     }
     Redirect::to(uri!("/admin"))
 }
+
+// TODO: add the ability to delete a paste via "/paste/view/<paste_id>/delete"
+//  Simply checks for isAdminGuard and deletes the paste from the hash map

@@ -33,9 +33,14 @@ pub fn new_paste_post(
     let paste_struct = Paste::new(paste.text.clone(), &req, jar);
     lock.insert(text_hash, paste_struct);
 
+    // TODO: add the ability for verified users or admins to set a custom url for pastes. This would show up by being a secondary route to "/paste/new" that has a higher priority that has isVerifiedGuard
+    //  Preferentially, this would use the same form if possible.
+
     let uri = uri!(view_paste(text_hash));
     Redirect::to(uri)
 }
+
+
 
 #[get("/paste/view/<paste_id>")]
 /// Page for viewing created pastes.
