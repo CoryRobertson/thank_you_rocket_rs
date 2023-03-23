@@ -222,8 +222,49 @@ pub fn view_online(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<
     )
 }
 
-// TODO: add a "view pastes" section where the admin can see a rendered link to all pastes with their text and hash
-//  Maybe something like "hash":"text", but limit the amount of text shown by some amount, maybe also have a html link as the hash text that takes you to the entire paste link.
+#[get("/admin/view_pastes")]
+pub fn view_pastes_admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
+    let mut paste_list = String::new();
+
+    let pastes = state.pastes.read().unwrap();
+
+    for (paste_id, paste) in pastes.iter() {
+        let paste_text = paste.text.clone();
+
+        let escaped = html_escape::encode_safe(&paste_text); // escape the paste
+
+        let final_text = {
+            if escaped.len() <= 150 {
+                escaped
+            } else {
+                std::borrow::Cow::Borrowed(&escaped[0..150])
+            }
+        };
+
+        let link_to_paste = format!("<a href=\"/paste/view/{0}\">{0}</a>", paste_id);
+        // /paste/view/<paste_id>/delete
+        let deletion_link_for_paste =
+            format!("<a href=\"/paste/view/{0}/delete\">DELETE</a>", paste_id);
+
+        paste_list.push_str(&format!(
+            "{} : {} : {} <br>",
+            link_to_paste, final_text, deletion_link_for_paste
+        ));
+    }
+
+    let back_button = "<button onclick=\"window.location.href=\'/admin\';\">Go back</button>";
+
+    RawHtml(
+        html! {
+            (PreEscaped(back_button))
+            br;
+            br;
+            (PreEscaped(paste_list))
+
+        }
+        .into_string(),
+    )
+}
 
 #[get("/admin")]
 /// Admin only page for displaying all messages sent to the server, as well as a few tools.
@@ -257,8 +298,9 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
     let view_cooldown_button = "<button onclick=\"window.location.href=\'/admin/view_cooldown\';\">View Cooldowns</button>";
     let view_hashes_button =
         "<button onclick=\"window.location.href=\'/admin/view_hashes\';\">View Hashes</button>";
-    let view_online_button =
-        "<button onclick=\"window.location.href=\'/admin/view_online\';\">View Online Users</button>";
+    let view_online_button = "<button onclick=\"window.location.href=\'/admin/view_online\';\">View Online Users</button>";
+    let view_pastes_button =
+        "<button onclick=\"window.location.href=\'/admin/view_pastes\';\">View Pastes</button>";
     let banned_ips = format!("{:?}", state.banned_ips.read().unwrap());
 
     let verified_list = match &state.admin_state.read().unwrap().verified_list {
@@ -312,6 +354,7 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
             (PreEscaped(view_cooldown_button))
             (PreEscaped(view_hashes_button))
             (PreEscaped(view_online_button))
+            (PreEscaped(view_pastes_button))
             br;
             br;
             (PreEscaped(message_list))

@@ -106,6 +106,7 @@ fn rocket() -> Rocket<Build> {
                 view_paste,
                 paste_404,
                 force_delete_paste,
+                view_pastes_admin,
             ],
         )
         .register("/", catchers![not_found])
