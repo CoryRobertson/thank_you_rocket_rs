@@ -442,7 +442,7 @@ pub fn force_delete_paste(
     _is_admin_guard: IsAdminGuard,
 ) -> Redirect {
     let mut lock = state.pastes.write().unwrap();
-    return match lock.remove(&paste_id) {
+    return match lock.remove(&paste_id.to_string()) {
         None => Redirect::to(uri!("/paste_404")),
         Some(_paste) => Redirect::to(uri!("/admin")),
     };

@@ -20,7 +20,7 @@ pub struct StateSave {
     pub banned_ips: Option<Vec<String>>,
     pub admin_state: Option<AdminState>,
     pub unique_users: Option<HashMap<String, UserMetric>>,
-    pub pastes: Option<HashMap<u64, Paste>>,
+    pub pastes: Option<HashMap<String, Paste>>,
 }
 
 /// The state struct for the rocket web frame work.
@@ -33,7 +33,7 @@ pub struct TYRState {
     pub banned_ips: Arc<RwLock<Vec<String>>>, // vector full of all of the banned ips read from file at startup
     pub admin_state: Arc<RwLock<AdminState>>,
     pub unique_users: Arc<RwLock<HashMap<String, UserMetric>>>,
-    pub pastes: Arc<RwLock<HashMap<u64, Paste>>>,
+    pub pastes: Arc<RwLock<HashMap<String, Paste>>>,
 }
 
 impl TYRState {

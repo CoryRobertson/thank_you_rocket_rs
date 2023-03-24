@@ -1,5 +1,6 @@
 use crate::pages::outcome_pages::paste_404;
 use crate::paste::Paste;
+use crate::verified_guard::GetVerifiedGuard;
 use crate::TYRState;
 use maud::{html, PreEscaped};
 use rocket::form::Form;
@@ -15,6 +16,7 @@ use std::net::SocketAddr;
 /// Form struct for a message
 pub struct NewPaste {
     pub text: String,
+    pub custom_url: Option<String>,
 }
 
 #[post("/paste/new", data = "<paste>")]
@@ -24,26 +26,32 @@ pub fn new_paste_post(
     req: SocketAddr,
     state: &State<TYRState>,
     jar: &CookieJar,
+    is_verified: GetVerifiedGuard,
 ) -> Redirect {
-    println!("{:?}", paste);
     let mut hasher = DefaultHasher::new();
     paste.text.hash(&mut hasher);
     let text_hash = hasher.finish();
-    println!("hash: {}", text_hash);
     let mut lock = state.pastes.write().unwrap();
     let paste_struct = Paste::new(paste.text.clone(), &req, jar);
-    lock.insert(text_hash, paste_struct);
+    // custom url is either the forms given custom url, or the text hash if no custom url is given.
+    let custom_url = paste.custom_url.clone().unwrap_or(text_hash.to_string());
+    let url_already_exists = { lock.iter().map(|(id, _)| id).any(|id| id == &custom_url) }; // variable for if the given custom url already exists
 
-    // TODO: add the ability for verified users or admins to set a custom url for pastes. This would show up by being a secondary route to "/paste/new" that has a higher priority that has isVerifiedGuard
-    //  Preferentially, this would use the same form if possible.
-
-    let uri = uri!(view_paste(text_hash));
-    Redirect::to(uri)
+    if is_verified.0 && !url_already_exists {
+        // if the user is both verified, and this given custom url does not exist.
+        lock.insert(custom_url.clone(), paste_struct);
+        let uri = uri!(view_paste(custom_url));
+        Redirect::to(uri)
+    } else {
+        lock.insert(text_hash.to_string(), paste_struct);
+        let uri = uri!(view_paste(text_hash.to_string()));
+        Redirect::to(uri)
+    }
 }
 
 #[get("/paste/view/<paste_id>")]
 /// Page for viewing created pastes.
-pub fn view_paste(paste_id: u64, _req: SocketAddr, state: &State<TYRState>) -> RawHtml<String> {
+pub fn view_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -> RawHtml<String> {
     let binding = state.pastes.read().unwrap();
     let paste_opt = binding.get(&paste_id);
 
@@ -67,11 +75,35 @@ pub fn view_paste(paste_id: u64, _req: SocketAddr, state: &State<TYRState>) -> R
 
 #[get("/paste/new")]
 /// Page for creating a new paste
-pub fn new_paste(_req: SocketAddr, _state: &State<TYRState>) -> RawHtml<String> {
-    //<input type="text" name="text" id="text">
-    RawHtml(
-        html! {
-        (PreEscaped(r#"
+pub fn new_paste(
+    _req: SocketAddr,
+    _state: &State<TYRState>,
+    is_verified: GetVerifiedGuard,
+) -> RawHtml<String> {
+    if is_verified.0 {
+        RawHtml(
+            html! {
+            (PreEscaped(r#"
+            <form action="/paste/new" method="post">
+                <label for="ip">Enter paste</label>
+                <br>
+                    <textarea rows = "5" cols = "60" name = "text"></textarea>
+                    <br>
+                    <p>Custom url: </p>
+                    <input type="text" name="custom_url" id="custom_url">
+                <br>
+                <br>
+                <input type="submit" value="Submit paste">
+            </form>
+    "#))
+            }
+            .into_string(),
+        )
+    } else {
+        // user is not verified
+        RawHtml(
+            html! {
+            (PreEscaped(r#"
             <form action="/paste/new" method="post">
                 <label for="ip">Enter paste</label>
                 <br>
@@ -80,7 +112,8 @@ pub fn new_paste(_req: SocketAddr, _state: &State<TYRState>) -> RawHtml<String> 
                 <input type="submit" value="Submit paste">
             </form>
     "#))
-        }
-        .into_string(),
-    )
+            }
+            .into_string(),
+        )
+    }
 }
