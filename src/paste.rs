@@ -4,8 +4,14 @@ use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum PasteContents {
+    File,
+    PlainText(String),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Paste {
-    pub text: String, // TODO: replace this text field with a content field that is a enum that contains either a string of text called plaintext or a file of data called a file.
+    pub content: PasteContents, // TODO: replace this text field with a content field that is a enum that contains either a string of text called plaintext or a file of data called a file.
     // #[serde(with = "ts_seconds")]
     pub post_time: DateTime<Local>,
     pub ip_of_poster: String,
@@ -16,7 +22,7 @@ pub struct Paste {
 impl Paste {
     pub fn new(text: String, req_socket: &SocketAddr, jar: &CookieJar) -> Self {
         Paste {
-            text,
+            content: PasteContents::PlainText(text),
             post_time: Local::now(),
             ip_of_poster: req_socket.ip().to_string(),
             login_cookie_of_poster: { jar.get("login").map(|cookie| cookie.to_string()) },

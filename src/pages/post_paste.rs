@@ -1,5 +1,5 @@
 use crate::pages::outcome_pages::paste_404;
-use crate::paste::Paste;
+use crate::paste::{Paste, PasteContents};
 use crate::verified_guard::GetVerifiedGuard;
 use crate::TYRState;
 use maud::{html, PreEscaped};
@@ -60,8 +60,16 @@ pub fn view_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -
     let escaped = match paste_opt {
         None => paste_404(),
         Some(text_paste) => {
-            let escaped = html_escape::encode_safe(&text_paste.text);
-            escaped.replace("\r\n", "<br>").replace('\n', "<br>")
+            match &text_paste.content {
+                PasteContents::File => {
+                    "FILE PASTE, NO DISPLAY YET".to_string()
+                }
+                PasteContents::PlainText(text) => {
+                    let escaped = html_escape::encode_safe(&text);
+                    escaped.replace("\r\n", "<br>").replace('\n', "<br>")
+                }
+            }
+
         }
     };
 

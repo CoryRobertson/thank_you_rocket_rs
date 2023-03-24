@@ -14,6 +14,7 @@ use rocket::{request, Request, State};
 use std::cmp::Ordering;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
+use crate::paste::PasteContents;
 
 #[derive(Default)]
 /// Request guard that requires an admin cookie.
@@ -229,27 +230,35 @@ pub fn view_pastes_admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> Ra
     let pastes = state.pastes.read().unwrap();
 
     for (paste_id, paste) in pastes.iter() {
-        let paste_text = paste.text.clone();
-
-        let escaped = html_escape::encode_safe(&paste_text); // escape the paste
-
-        let final_text = {
-            if escaped.len() <= 150 {
-                escaped
-            } else {
-                std::borrow::Cow::Borrowed(&escaped[0..150])
+        match &paste.content {
+            PasteContents::File => {
+                paste_list.push_str(&format!("{}: FILE PASTE, NO DISPLAY YET <br>", paste_id));
             }
-        };
+            PasteContents::PlainText(paste_text) => {
+                // let paste_text = paste.text.clone();
 
-        let link_to_paste = format!("<a href=\"/paste/view/{0}\">{0}</a>", paste_id);
-        // /paste/view/<paste_id>/delete
-        let deletion_link_for_paste =
-            format!("<a href=\"/paste/view/{0}/delete\">DELETE</a>", paste_id);
+                let escaped = html_escape::encode_safe(&paste_text); // escape the paste
 
-        paste_list.push_str(&format!(
-            "{} : {} : {} <br>",
-            link_to_paste, final_text, deletion_link_for_paste
-        ));
+                let final_text = {
+                    if escaped.len() <= 150 {
+                        escaped
+                    } else {
+                        std::borrow::Cow::Borrowed(&escaped[0..150])
+                    }
+                };
+
+                let link_to_paste = format!("<a href=\"/paste/view/{0}\">{0}</a>", paste_id);
+                // /paste/view/<paste_id>/delete
+                let deletion_link_for_paste =
+                    format!("<a href=\"/paste/view/{0}/delete\">DELETE</a>", paste_id);
+
+                paste_list.push_str(&format!(
+                    "{} : {} : {} <br>",
+                    link_to_paste, final_text, deletion_link_for_paste
+                ));
+            }
+        }
+
     }
 
     let back_button = "<button onclick=\"window.location.href=\'/admin\';\">Go back</button>";
