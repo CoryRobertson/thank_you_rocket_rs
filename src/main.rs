@@ -77,6 +77,8 @@ fn rocket() -> Rocket<Build> {
 
     // TODO: make the program periodically save its state even if its not shutting down, most likely through a second thread that carries a reference to the state.
 
+    // TODO: make the same thread that saves program state periodically also clean up old pastes, maybe of age > 30 days?
+
     rocket::build()
         .manage(state)
         .mount(
