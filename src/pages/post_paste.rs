@@ -7,16 +7,63 @@ use rocket::form::Form;
 use rocket::http::CookieJar;
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
-use rocket::State;
+use rocket::{Data, State};
 use std::collections::hash_map::DefaultHasher;
+use std::fs;
+use std::fs::File;
 use std::hash::{Hash, Hasher};
+use std::io::Write;
 use std::net::SocketAddr;
+use std::path::{Path, PathBuf};
+use rocket::data::ToByteUnit;
+use rocket::tokio::io::AsyncReadExt;
+use rocket::yansi::Color::Red;
 
 #[derive(FromForm, Debug, Clone)]
 /// Form struct for a message
 pub struct NewPaste {
     pub text: String,
     pub custom_url: Option<String>,
+}
+
+#[post("/paste/upload/<filename>", data = "<paste>")]
+/// Route for uploading a file to the paste section
+/// echo "this is a test" | curl --data-binary @- http://localhost:8080/paste/upload/<filename>
+pub async fn upload(paste: Data<'_>, state: &State<TYRState>, filename: String, req: SocketAddr, jar: &CookieJar<'_>) -> Redirect {
+    let mut file_content = String::new();
+    let _file_size = paste.open(128.kibibytes()).read_to_string(&mut file_content).await.unwrap_or_default();
+    let mut hasher = DefaultHasher::new();
+    file_content.hash(&mut hasher);
+
+    let path = PathBuf::from(format!("./output/file_uploads/{}", filename));
+    // println!("path: {:?}",path);
+    if !Path::new(&path).exists() {
+        let mut file = match File::create(&path) {
+            Ok(f) => {
+                // println!("ok file create");
+                f
+            }
+            Err(_) => { return Redirect::to(uri!("/error_message")) }
+        };
+
+        match file.write_all(file_content.as_bytes()) {
+            Ok(_) => {
+                // println!("ok file write all");
+            }
+            Err(_) => { return Redirect::to(uri!("/error_message")) }
+        }
+
+        file.sync_all().unwrap();
+
+        let mut lock = state.pastes.write().unwrap();
+
+        lock.insert(hasher.finish().to_string(),Paste::new_file_paste(path,&req,jar));
+
+        Redirect::to(uri!("/"))
+    } else {
+        Redirect::to(uri!("/error_message"))
+    }
+
 }
 
 #[post("/paste/new", data = "<paste>")]
@@ -49,6 +96,25 @@ pub fn new_paste_post(
     }
 }
 
+#[get("/paste/view/<paste_id>/file")]
+/// Page for viewing created pastes.
+pub fn download_file_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -> Option<File> {
+    let binding = state.pastes.read().unwrap();
+    let paste_opt = binding.get(&paste_id);
+    match paste_opt {
+        None => { None }
+        Some(paste) => {
+            match &paste.content {
+                PasteContents::File(path) => {
+                    File::open(&path).ok()
+                }
+                PasteContents::PlainText(_) => { None }
+            }
+        }
+    }
+}
+
+
 #[get("/paste/view/<paste_id>")]
 /// Page for viewing created pastes.
 pub fn view_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -> RawHtml<String> {
@@ -61,7 +127,7 @@ pub fn view_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -
         None => paste_404(),
         Some(text_paste) => {
             match &text_paste.content {
-                PasteContents::File => {
+                PasteContents::File(path) => {
                     "FILE PASTE, NO DISPLAY YET".to_string()
                 }
                 PasteContents::PlainText(text) => {

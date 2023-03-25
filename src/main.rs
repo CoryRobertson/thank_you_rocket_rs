@@ -2,6 +2,7 @@
 #[macro_use]
 extern crate rocket;
 
+use std::fs;
 use crate::metrics::Metrics;
 use crate::pages::admin::*;
 use crate::pages::error_catch_pages::not_found;
@@ -66,6 +67,8 @@ fn rocket() -> Rocket<Build> {
 
     let metrics_fairing: Metrics = Metrics {};
 
+    fs::create_dir_all("./output/file_uploads/").unwrap();
+
     #[cfg(debug_assertions)]
     println!("Salt: {}", pages::login::SALT.as_str());
 
@@ -109,6 +112,8 @@ fn rocket() -> Rocket<Build> {
                 paste_404,
                 force_delete_paste,
                 view_pastes_admin,
+                upload,
+                download_file_paste,
             ],
         )
         .register("/", catchers![not_found])

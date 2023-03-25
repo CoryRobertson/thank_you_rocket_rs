@@ -230,9 +230,12 @@ pub fn view_pastes_admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> Ra
     let pastes = state.pastes.read().unwrap();
 
     for (paste_id, paste) in pastes.iter() {
+        let deletion_link_for_paste = format!("<a href=\"/paste/view/{0}/delete\">DELETE</a>", paste_id);
+        let link_to_paste = format!("<a href=\"/paste/view/{0}\">{0}</a>", paste_id);
         match &paste.content {
-            PasteContents::File => {
-                paste_list.push_str(&format!("{}: FILE PASTE, NO DISPLAY YET <br>", paste_id));
+            PasteContents::File(file_text) => {
+
+                paste_list.push_str(&format!("{}: FILE PASTE, NO DISPLAY YET : {} <br>", link_to_paste, deletion_link_for_paste));
             }
             PasteContents::PlainText(paste_text) => {
                 // let paste_text = paste.text.clone();
@@ -247,10 +250,7 @@ pub fn view_pastes_admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> Ra
                     }
                 };
 
-                let link_to_paste = format!("<a href=\"/paste/view/{0}\">{0}</a>", paste_id);
-                // /paste/view/<paste_id>/delete
-                let deletion_link_for_paste =
-                    format!("<a href=\"/paste/view/{0}/delete\">DELETE</a>", paste_id);
+
 
                 paste_list.push_str(&format!(
                     "{} : {} : {} <br>",

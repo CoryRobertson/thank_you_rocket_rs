@@ -2,10 +2,11 @@ use chrono::{DateTime, Local};
 use rocket::http::CookieJar;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum PasteContents {
-    File,
+    File(PathBuf),
     PlainText(String),
 }
 
@@ -23,6 +24,14 @@ impl Paste {
     pub fn new(text: String, req_socket: &SocketAddr, jar: &CookieJar) -> Self {
         Paste {
             content: PasteContents::PlainText(text),
+            post_time: Local::now(),
+            ip_of_poster: req_socket.ip().to_string(),
+            login_cookie_of_poster: { jar.get("login").map(|cookie| cookie.to_string()) },
+        }
+    }
+    pub fn new_file_paste(file_path: PathBuf, req_socket: &SocketAddr, jar: &CookieJar) -> Self {
+        Paste{
+            content: PasteContents::File(file_path),
             post_time: Local::now(),
             ip_of_poster: req_socket.ip().to_string(),
             login_cookie_of_poster: { jar.get("login").map(|cookie| cookie.to_string()) },
