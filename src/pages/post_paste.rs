@@ -4,7 +4,7 @@ use crate::verified_guard::GetVerifiedGuard;
 use crate::TYRState;
 use maud::{html, PreEscaped};
 use rocket::form::Form;
-use rocket::http::CookieJar;
+use rocket::http::{CookieJar, Status};
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
 use rocket::{Data, State};
@@ -12,12 +12,13 @@ use std::collections::hash_map::DefaultHasher;
 use std::fs;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
-use std::io::Write;
+use std::io::{ErrorKind, Read, Write};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use rocket::data::ToByteUnit;
 use rocket::tokio::io::AsyncReadExt;
 use rocket::yansi::Color::Red;
+use rocket_download_response::DownloadResponse;
 
 #[derive(FromForm, Debug, Clone)]
 /// Form struct for a message
@@ -97,18 +98,25 @@ pub fn new_paste_post(
 }
 
 #[get("/paste/view/<paste_id>/file")]
-/// Page for viewing created pastes.
-pub fn download_file_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -> Option<File> {
-    let binding = state.pastes.read().unwrap();
+/// Page for viewing created pastes that are files, attempts to have the user download the paste.
+pub async fn download_file_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -> Result<DownloadResponse, Status> {
+    let binding = state.pastes.read().unwrap().clone();
     let paste_opt = binding.get(&paste_id);
     match paste_opt {
-        None => { None }
+        None => { Err(Default::default()) }
         Some(paste) => {
             match &paste.content {
                 PasteContents::File(path) => {
-                    File::open(&path).ok()
+                    let file_name = path.file_name().unwrap().to_str();
+                    DownloadResponse::from_file(path.clone().into_boxed_path(), file_name, None).await.map_err(|err| {
+                        if err.kind() == ErrorKind::NotFound {
+                            Status::NotFound
+                        } else {
+                            Status::InternalServerError
+                        }
+                    })
                 }
-                PasteContents::PlainText(_) => { None }
+                PasteContents::PlainText(_) => { Err(Default::default()) }
             }
         }
     }
@@ -116,7 +124,7 @@ pub fn download_file_paste(paste_id: String, _req: SocketAddr, state: &State<TYR
 
 
 #[get("/paste/view/<paste_id>")]
-/// Page for viewing created pastes.
+/// Page for viewing created pastes, viewing only, no download prompt.
 pub fn view_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -> RawHtml<String> {
     let binding = state.pastes.read().unwrap();
     let paste_opt = binding.get(&paste_id);
@@ -128,7 +136,18 @@ pub fn view_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -
         Some(text_paste) => {
             match &text_paste.content {
                 PasteContents::File(path) => {
-                    "FILE PASTE, NO DISPLAY YET".to_string()
+                    // "FILE PASTE, NO DISPLAY YET".to_string()
+                    match File::open(&path).ok() {
+                        None => {
+                            "File un-readable. Error occurred.".to_string()
+                        }
+                        Some(mut file) => {
+                            let mut file_contents = String::new();
+                            file.read_to_string(&mut file_contents).unwrap_or_default();
+                            file_contents
+                        }
+                    }
+
                 }
                 PasteContents::PlainText(text) => {
                     let escaped = html_escape::encode_safe(&text);
@@ -154,6 +173,7 @@ pub fn new_paste(
     _state: &State<TYRState>,
     is_verified: GetVerifiedGuard,
 ) -> RawHtml<String> {
+    // TODO: make a form that handles file uploads, at the moment cmd line protocols allow for it only.
     if is_verified.0 {
         RawHtml(
             html! {
