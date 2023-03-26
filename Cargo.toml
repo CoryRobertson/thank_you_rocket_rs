@@ -17,3 +17,4 @@ maud = { version = "0.24.0" }
 lazy_static = "1.4.0"
 argon2 = "0.4.1"
 rocket-download-response = "0.5.2"
+rocket-multipart-form-data = "0.10.5"

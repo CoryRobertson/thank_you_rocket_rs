@@ -1,5 +1,6 @@
 use crate::common::is_ip_valid;
 use crate::metrics::UserMetric;
+use crate::paste::PasteContents;
 use crate::state_management::{save_program_state, TYRState};
 use crate::user::User;
 use crate::{ONLINE_TIMER, POST_COOLDOWN};
@@ -16,7 +17,6 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::paste::PasteContents;
 
 #[derive(Default)]
 /// Request guard that requires an admin cookie.
@@ -232,23 +232,33 @@ pub fn view_pastes_admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> Ra
     let pastes = state.pastes.read().unwrap();
 
     for (paste_id, paste) in pastes.iter() {
-        let deletion_link_for_paste = format!("<a href=\"/paste/view/{0}/delete\">DELETE</a>", paste_id);
+        let deletion_link_for_paste =
+            format!("<a href=\"/paste/view/{0}/delete\">DELETE</a>", paste_id);
         let link_to_paste = format!("<a href=\"/paste/view/{0}\">{0}</a>", paste_id);
         match &paste.content {
             PasteContents::File(path) => {
-
-                let (file_content,file_name) = match File::open(&path).ok() {
-                    None => {
-                        ("File un-readable. Error occurred.".to_string(), "NO FILE NAME GIVEN")
-                    }
+                let (file_content, file_name) = match File::open(&path).ok() {
+                    None => (
+                        "File un-readable. Error occurred.".to_string(),
+                        "NO FILE NAME GIVEN",
+                    ),
                     Some(mut file) => {
                         let mut file_contents = String::new();
                         file.read_to_string(&mut file_contents).unwrap_or_default();
                         file_contents.truncate(150);
-                        (file_contents, path.file_name().unwrap_or_default().to_str().unwrap_or_default())
+                        (
+                            file_contents,
+                            path.file_name()
+                                .unwrap_or_default()
+                                .to_str()
+                                .unwrap_or_default(),
+                        )
                     }
                 };
-                paste_list.push_str(&format!("{} : {} : {} : {} <br>", link_to_paste,file_name ,file_content, deletion_link_for_paste));
+                paste_list.push_str(&format!(
+                    "{} : {} : {} : {} <br>",
+                    link_to_paste, file_name, file_content, deletion_link_for_paste
+                ));
             }
             PasteContents::PlainText(paste_text) => {
                 // let paste_text = paste.text.clone();
@@ -263,15 +273,12 @@ pub fn view_pastes_admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> Ra
                     }
                 };
 
-
-
                 paste_list.push_str(&format!(
                     "{} : {} : {} <br>",
                     link_to_paste, final_text, deletion_link_for_paste
                 ));
             }
         }
-
     }
 
     let back_button = "<button onclick=\"window.location.href=\'/admin\';\">Go back</button>";

@@ -2,7 +2,6 @@
 #[macro_use]
 extern crate rocket;
 
-use std::fs;
 use crate::metrics::Metrics;
 use crate::pages::admin::*;
 use crate::pages::error_catch_pages::not_found;
@@ -17,6 +16,7 @@ use crate::state_management::*;
 use rocket::fairing::AdHoc;
 use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
+use std::fs;
 use std::path::PathBuf;
 
 mod common;
@@ -114,6 +114,7 @@ fn rocket() -> Rocket<Build> {
                 view_pastes_admin,
                 upload,
                 download_file_paste,
+                upload_multipart,
             ],
         )
         .register("/", catchers![not_found])
