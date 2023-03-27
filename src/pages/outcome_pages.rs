@@ -57,6 +57,12 @@ pub fn error_message() -> String {
     "An unexpected error occurred. ¯\\_(ツ)_/¯".to_string()
 }
 
+#[get("/error_message/<specific>")]
+/// Route for having the message contain bad characters
+pub fn error_message_specific(specific: String) -> String {
+    format!("{}", specific)
+}
+
 #[get("/submit_message")]
 /// Route for redirecting the user from a bad submit message request
 pub fn submit_message_no_data(_req: SocketAddr, _messages: &State<TYRState>) -> Redirect {

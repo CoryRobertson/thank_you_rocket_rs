@@ -4,20 +4,22 @@ use crate::verified_guard::GetVerifiedGuard;
 use crate::TYRState;
 use maud::{html, PreEscaped};
 use rocket::data::ToByteUnit;
-use rocket::form::{Form};
+use rocket::form::Form;
 use rocket::http::{ContentType, CookieJar, Status};
 use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
 use rocket::tokio::io::AsyncReadExt;
 use rocket::{Data, State};
 use rocket_download_response::DownloadResponse;
+use rocket_multipart_form_data::{
+    MultipartFormData, MultipartFormDataField, MultipartFormDataOptions,
+};
 use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io::{ErrorKind, Read, Write};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use rocket_multipart_form_data::{MultipartFormData, MultipartFormDataField, MultipartFormDataOptions};
 
 #[derive(FromForm, Debug, Clone)]
 /// Form struct for a message
@@ -81,59 +83,116 @@ pub async fn upload(
 #[post("/paste/upload", data = "<data>")]
 /// Route for uploading a file to the paste section
 /// echo "this is a test" | curl --data-binary @- http://localhost:8080/paste/upload/<filename>
-pub async fn upload_multipart(content_type: &ContentType, data: Data<'_>, state: &State<TYRState>,req: SocketAddr, jar: &CookieJar<'_>,) -> Redirect {
-    let options = MultipartFormDataOptions::with_multipart_form_data_fields(
-        vec! [
-            // MultipartFormDataField::file("photo").content_type_by_string(Some(mime::IMAGE_STAR)).unwrap(),
-            // MultipartFormDataField::raw("fingerprint").size_limit(4096),
-            // MultipartFormDataField::text("name"),
-            // MultipartFormDataField::text("email").repetition(Repetition::fixed(3)),
-            // MultipartFormDataField::text("email"),
-            // MultipartFormDataField::bytes("data"),
-            // MultipartFormDataField::bytes("text"),
-            // MultipartFormDataField::text("text"),
-            MultipartFormDataField::text("data"), // this one allows for random txt files
-        ]
-    );
+pub async fn upload_multipart(
+    content_type: &ContentType,
+    data: Data<'_>,
+    state: &State<TYRState>,
+    req: SocketAddr,
+    jar: &CookieJar<'_>,
+) -> Redirect {
+    let options = MultipartFormDataOptions::with_multipart_form_data_fields(vec![
+        // MultipartFormDataField::file("photo").content_type_by_string(Some(mime::IMAGE_STAR)).unwrap(),
+        // MultipartFormDataField::raw("fingerprint").size_limit(4096),
+        // MultipartFormDataField::text("name"),
+        // MultipartFormDataField::text("email").repetition(Repetition::fixed(3)),
+        // MultipartFormDataField::text("email"),
+        // MultipartFormDataField::bytes("data"),
+        // MultipartFormDataField::bytes("text"),
+        // MultipartFormDataField::text("text"),
+        MultipartFormDataField::text("data"), // this one allows for random txt files
+        MultipartFormDataField::bytes("data"),
+    ]);
 
-    let multipart_form_data = MultipartFormData::parse(content_type, data, options).await.unwrap();
+    match MultipartFormData::parse(content_type, data, options).await {
+        Ok(multipart_form_data) => {
+            if let Some(file) = multipart_form_data.texts.get("data") {
+                // println!("{:?}", file);
+                if let Some(text_field) = file.get(0) {
+                    let path = PathBuf::from(format!(
+                        "./output/file_uploads/{}",
+                        text_field.file_name.clone().unwrap_or_default()
+                    ));
+                    if !path.exists() {
+                        let mut file = match File::create(path.clone()) {
+                            Ok(f) => f,
+                            Err(_) => {
+                                return Redirect::to(uri!("/error_message"));
+                            }
+                        };
 
-    // println!("{:?}", multipart_form_data.files);
-    // println!("{:?}", multipart_form_data.raw);
-    // println!("{:?}", multipart_form_data.texts);
+                        match file.write_all(text_field.text.as_bytes()) {
+                            Ok(_) => {
+                                // println!("ok file write all");
+                            }
+                            Err(_) => return Redirect::to(uri!("/error_message")),
+                        }
 
-    if let Some(file) = multipart_form_data.texts.get("data") {
-        // println!("{:?}", file);
-        if let Some(text_field) = file.get(0) {
-            let path = PathBuf::from(format!("./output/file_uploads/{}", text_field.file_name.clone().unwrap_or_default()));
-            if !path.exists() {
-                let mut file = match File::create(path.clone()) {
-                    Ok(f) => {f}
-                    Err(_) => { return Redirect::to(uri!("/error_message")); }
-                };
+                        let _ = file.sync_all();
 
-                match file.write_all(text_field.text.as_bytes()) {
-                    Ok(_) => {
-                        // println!("ok file write all");
+                        let mut hasher = DefaultHasher::new();
+                        text_field.text.hash(&mut hasher);
+
+                        let mut lock = state.pastes.write().unwrap();
+
+                        lock.insert(
+                            hasher.finish().to_string(),
+                            Paste::new_file_paste(path.clone(), &req, jar),
+                        );
+
+                        return Redirect::to(uri!("/"));
                     }
-                    Err(_) => return Redirect::to(uri!("/error_message")),
                 }
+            } else {
+                if let Some(raw_bytes_vec) = multipart_form_data.raw.get("data") {
+                    if let Some(raw_bytes_data) = raw_bytes_vec.get(0) {
+                        let vec_bytes = &raw_bytes_data.raw;
 
-                let _ = file.sync_all();
+                        let path = PathBuf::from(format!(
+                            "./output/file_uploads/{}",
+                            raw_bytes_data.file_name.clone().unwrap_or_default()
+                        ));
+                        if !path.exists() {
+                            let mut file = match File::create(path.clone()) {
+                                Ok(f) => f,
+                                Err(_) => {
+                                    return Redirect::to(uri!("/error_message"));
+                                }
+                            };
 
-                let mut hasher = DefaultHasher::new();
-                text_field.text.hash(&mut hasher);
+                            match file.write_all(vec_bytes) {
+                                Ok(_) => {
+                                    // println!("ok file write all");
+                                }
+                                Err(_) => return Redirect::to(uri!("/error_message")),
+                            }
 
-                let mut lock = state.pastes.write().unwrap();
+                            let _ = file.sync_all();
 
-                lock.insert(hasher.finish().to_string(),Paste::new_file_paste(path.clone(),&req,jar));
+                            let mut hasher = DefaultHasher::new();
+                            vec_bytes.hash(&mut hasher);
 
+                            let mut lock = state.pastes.write().unwrap();
+
+                            lock.insert(
+                                hasher.finish().to_string(),
+                                Paste::new_file_paste(path.clone(), &req, jar),
+                            );
+
+                            return Redirect::to(uri!("/"));
+                        }
+                    }
+                }
             }
+
+            println!("{:?}", multipart_form_data);
+        }
+        Err(err) => {
+            println!("{}", err);
+            println!("{}", content_type);
         }
     }
 
-
-    Redirect::to(uri!("/"))
+    return Redirect::to(uri!("/error_message"));
 }
 
 #[post("/paste/new", data = "<paste>")]

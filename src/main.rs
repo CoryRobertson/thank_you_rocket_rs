@@ -97,6 +97,7 @@ fn rocket() -> Rocket<Build> {
                 too_short,
                 duplicate,
                 error_message,
+                error_message_specific,
                 login,
                 login_post,
                 logout,
