@@ -57,8 +57,20 @@ pub fn error_message() -> String {
     "An unexpected error occurred. ¯\\_(ツ)_/¯".to_string()
 }
 
+#[get("/error_message/<specific>")]
+/// Route for having the message contain bad characters
+pub fn error_message_specific(specific: String) -> String {
+    specific
+}
+
 #[get("/submit_message")]
 /// Route for redirecting the user from a bad submit message request
 pub fn submit_message_no_data(_req: SocketAddr, _messages: &State<TYRState>) -> Redirect {
     Redirect::to(uri!("/new")) // user some how went to submit message, and there was no form data sent to the server, so we redirect them to the submit page.
+}
+
+#[get("/paste_404")]
+/// Route for if a paste does not exist
+pub fn paste_404() -> String {
+    "That paste does not exist.".to_string()
 }

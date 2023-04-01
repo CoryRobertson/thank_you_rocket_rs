@@ -1,5 +1,6 @@
 use crate::common::is_ip_valid;
 use crate::metrics::UserMetric;
+use crate::paste::PasteContents;
 use crate::state_management::{save_program_state, TYRState};
 use crate::user::User;
 use crate::{ONLINE_TIMER, POST_COOLDOWN};
@@ -12,6 +13,8 @@ use rocket::response::content::RawHtml;
 use rocket::response::Redirect;
 use rocket::{request, Request, State};
 use std::cmp::Ordering;
+use std::fs::File;
+use std::io::Read;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -222,6 +225,76 @@ pub fn view_online(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<
     )
 }
 
+#[get("/admin/view_pastes")]
+pub fn view_pastes_admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
+    let mut paste_list = String::new();
+
+    let pastes = state.pastes.read().unwrap();
+
+    for (paste_id, paste) in pastes.iter() {
+        let deletion_link_for_paste =
+            format!("<a href=\"/paste/view/{0}/delete\">DELETE</a>", paste_id);
+        let link_to_paste = format!("<a href=\"/paste/view/{0}\">{0}</a>", paste_id);
+        match &paste.content {
+            PasteContents::File(path) => {
+                let (file_content, file_name) = match File::open(path).ok() {
+                    None => (
+                        "File un-readable. Error occurred.".to_string(),
+                        "NO FILE NAME GIVEN",
+                    ),
+                    Some(mut file) => {
+                        let mut file_contents = String::new();
+                        file.read_to_string(&mut file_contents).unwrap_or_default();
+                        file_contents.truncate(150);
+                        (
+                            file_contents,
+                            path.file_name()
+                                .unwrap_or_default()
+                                .to_str()
+                                .unwrap_or_default(),
+                        )
+                    }
+                };
+                paste_list.push_str(&format!(
+                    "{} : {} : {} : {} <br>",
+                    link_to_paste, file_name, file_content, deletion_link_for_paste
+                ));
+            }
+            PasteContents::PlainText(paste_text) => {
+                // let paste_text = paste.text.clone();
+
+                let escaped = html_escape::encode_safe(&paste_text); // escape the paste
+
+                let final_text = {
+                    if escaped.len() <= 150 {
+                        escaped
+                    } else {
+                        std::borrow::Cow::Borrowed(&escaped[0..150])
+                    }
+                };
+
+                paste_list.push_str(&format!(
+                    "{} : {} : {} <br>",
+                    link_to_paste, final_text, deletion_link_for_paste
+                ));
+            }
+        }
+    }
+
+    let back_button = "<button onclick=\"window.location.href=\'/admin\';\">Go back</button>";
+
+    RawHtml(
+        html! {
+            (PreEscaped(back_button))
+            br;
+            br;
+            (PreEscaped(paste_list))
+
+        }
+        .into_string(),
+    )
+}
+
 #[get("/admin")]
 /// Admin only page for displaying all messages sent to the server, as well as a few tools.
 pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String> {
@@ -254,8 +327,9 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
     let view_cooldown_button = "<button onclick=\"window.location.href=\'/admin/view_cooldown\';\">View Cooldowns</button>";
     let view_hashes_button =
         "<button onclick=\"window.location.href=\'/admin/view_hashes\';\">View Hashes</button>";
-    let view_online_button =
-        "<button onclick=\"window.location.href=\'/admin/view_online\';\">View Online Users</button>";
+    let view_online_button = "<button onclick=\"window.location.href=\'/admin/view_online\';\">View Online Users</button>";
+    let view_pastes_button =
+        "<button onclick=\"window.location.href=\'/admin/view_pastes\';\">View Pastes</button>";
     let banned_ips = format!("{:?}", state.banned_ips.read().unwrap());
 
     let verified_list = match &state.admin_state.read().unwrap().verified_list {
@@ -309,6 +383,7 @@ pub fn admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtml<String
             (PreEscaped(view_cooldown_button))
             (PreEscaped(view_hashes_button))
             (PreEscaped(view_online_button))
+            (PreEscaped(view_pastes_button))
             br;
             br;
             (PreEscaped(message_list))
@@ -385,4 +460,19 @@ pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) ->
         save_program_state(state, &PathBuf::from("./output/state.ser"));
     }
     Redirect::to(uri!("/admin"))
+}
+
+#[get("/paste/view/<paste_id>/delete")]
+/// Route for deleting a paste, this is forceful and requires administration rights.
+/// The paste is either deleted, or if it does not exist, a 404 error is returned.
+pub fn force_delete_paste(
+    paste_id: u64,
+    state: &State<TYRState>,
+    _is_admin_guard: IsAdminGuard,
+) -> Redirect {
+    let mut lock = state.pastes.write().unwrap();
+    return match lock.remove(&paste_id.to_string()) {
+        None => Redirect::to(uri!("/paste_404")),
+        Some(_paste) => Redirect::to(uri!("/admin")),
+    };
 }

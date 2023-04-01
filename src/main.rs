@@ -9,18 +9,21 @@ use crate::pages::index::index;
 use crate::pages::login::*;
 use crate::pages::new::new;
 use crate::pages::outcome_pages::*;
+use crate::pages::post_paste::*;
 use crate::pages::submit_message::submit_message;
 use crate::pages::view::view;
 use crate::state_management::*;
 use rocket::fairing::AdHoc;
 use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
+use std::fs;
 use std::path::PathBuf;
 
 mod common;
 mod message;
 mod metrics;
 mod pages;
+mod paste;
 mod state_management;
 mod user;
 mod verified_guard;
@@ -64,12 +67,20 @@ fn rocket() -> Rocket<Build> {
 
     let metrics_fairing: Metrics = Metrics {};
 
+    fs::create_dir_all("./output/file_uploads/").unwrap();
+
     #[cfg(debug_assertions)]
     println!("Salt: {}", pages::login::SALT.as_str());
 
     println!("Admin state: {:?}", state.admin_state.read().unwrap());
 
     println!("Loaded banned ips: {:?}", state.banned_ips.read().unwrap());
+
+    println!("Pastes: {:?}", state.pastes.read().unwrap());
+
+    // TODO: make the program periodically save its state even if its not shutting down, most likely through a second thread that carries a reference to the state.
+
+    // TODO: make the same thread that saves program state periodically also clean up old pastes, maybe of age > 30 days?
 
     rocket::build()
         .manage(state)
@@ -86,6 +97,7 @@ fn rocket() -> Rocket<Build> {
                 too_short,
                 duplicate,
                 error_message,
+                error_message_specific,
                 login,
                 login_post,
                 logout,
@@ -95,6 +107,15 @@ fn rocket() -> Rocket<Build> {
                 view_cooldown,
                 view_hashes,
                 view_online,
+                new_paste,
+                new_paste_post,
+                view_paste,
+                paste_404,
+                force_delete_paste,
+                view_pastes_admin,
+                upload,
+                download_file_paste,
+                upload_multipart,
             ],
         )
         .register("/", catchers![not_found])

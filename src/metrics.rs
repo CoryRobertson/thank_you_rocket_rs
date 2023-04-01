@@ -67,6 +67,8 @@ impl Fairing for Metrics {
     async fn on_request(&self, req: &mut Request<'_>, _data: &mut Data<'_>) {
         let state = req.rocket().state::<TYRState>().unwrap();
 
+        // println!("{:?}", req);
+
         let uri = req.uri();
 
         // println!("URI: {}", uri);
