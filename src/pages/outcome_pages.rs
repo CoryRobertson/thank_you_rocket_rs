@@ -60,7 +60,7 @@ pub fn error_message() -> String {
 #[get("/error_message/<specific>")]
 /// Route for having the message contain bad characters
 pub fn error_message_specific(specific: String) -> String {
-    format!("{}", specific)
+    specific
 }
 
 #[get("/submit_message")]

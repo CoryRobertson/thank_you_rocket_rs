@@ -136,50 +136,48 @@ pub async fn upload_multipart(
 
                         lock.insert(
                             hasher.finish().to_string(),
-                            Paste::new_file_paste(path.clone(), &req, jar),
+                            Paste::new_file_paste(path, &req, jar),
                         );
 
                         return Redirect::to(uri!("/"));
                     }
                 }
-            } else {
-                if let Some(raw_bytes_vec) = multipart_form_data.raw.get("data") {
-                    if let Some(raw_bytes_data) = raw_bytes_vec.get(0) {
-                        let vec_bytes = &raw_bytes_data.raw;
+            } else if let Some(raw_bytes_vec) = multipart_form_data.raw.get("data") {
+                if let Some(raw_bytes_data) = raw_bytes_vec.get(0) {
+                    let vec_bytes = &raw_bytes_data.raw;
 
-                        let path = PathBuf::from(format!(
-                            "./output/file_uploads/{}",
-                            raw_bytes_data.file_name.clone().unwrap_or_default()
-                        ));
-                        if !path.exists() {
-                            let mut file = match File::create(path.clone()) {
-                                Ok(f) => f,
-                                Err(_) => {
-                                    return Redirect::to(uri!("/error_message"));
-                                }
-                            };
-
-                            match file.write_all(vec_bytes) {
-                                Ok(_) => {
-                                    // println!("ok file write all");
-                                }
-                                Err(_) => return Redirect::to(uri!("/error_message")),
+                    let path = PathBuf::from(format!(
+                        "./output/file_uploads/{}",
+                        raw_bytes_data.file_name.clone().unwrap_or_default()
+                    ));
+                    if !path.exists() {
+                        let mut file = match File::create(path.clone()) {
+                            Ok(f) => f,
+                            Err(_) => {
+                                return Redirect::to(uri!("/error_message"));
                             }
+                        };
 
-                            let _ = file.sync_all();
-
-                            let mut hasher = DefaultHasher::new();
-                            vec_bytes.hash(&mut hasher);
-
-                            let mut lock = state.pastes.write().unwrap();
-
-                            lock.insert(
-                                hasher.finish().to_string(),
-                                Paste::new_file_paste(path.clone(), &req, jar),
-                            );
-
-                            return Redirect::to(uri!("/"));
+                        match file.write_all(vec_bytes) {
+                            Ok(_) => {
+                                // println!("ok file write all");
+                            }
+                            Err(_) => return Redirect::to(uri!("/error_message")),
                         }
+
+                        let _ = file.sync_all();
+
+                        let mut hasher = DefaultHasher::new();
+                        vec_bytes.hash(&mut hasher);
+
+                        let mut lock = state.pastes.write().unwrap();
+
+                        lock.insert(
+                            hasher.finish().to_string(),
+                            Paste::new_file_paste(path, &req, jar),
+                        );
+
+                        return Redirect::to(uri!("/"));
                     }
                 }
             }
@@ -268,7 +266,7 @@ pub fn view_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -
             match &text_paste.content {
                 PasteContents::File(path) => {
                     // "FILE PASTE, NO DISPLAY YET".to_string()
-                    match File::open(&path).ok() {
+                    match File::open(path).ok() {
                         None => "File un-readable. Error occurred.".to_string(),
                         Some(mut file) => {
                             let mut file_contents = String::new();

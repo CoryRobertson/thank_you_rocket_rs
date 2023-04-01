@@ -237,7 +237,7 @@ pub fn view_pastes_admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> Ra
         let link_to_paste = format!("<a href=\"/paste/view/{0}\">{0}</a>", paste_id);
         match &paste.content {
             PasteContents::File(path) => {
-                let (file_content, file_name) = match File::open(&path).ok() {
+                let (file_content, file_name) = match File::open(path).ok() {
                     None => (
                         "File un-readable. Error occurred.".to_string(),
                         "NO FILE NAME GIVEN",
