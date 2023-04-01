@@ -300,9 +300,6 @@ pub fn new_paste(
     _state: &State<TYRState>,
     is_verified: GetVerifiedGuard,
 ) -> RawHtml<String> {
-    // TODO: make a form that handles file uploads, at the moment cmd line protocols allow for it only.
-    // https://crates.io/crates/rocket-multipart-form-data
-    // https://api.rocket.rs/master/rocket/form/struct.DataField.html
     if is_verified.0 {
         RawHtml(
             html! {

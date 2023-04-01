@@ -12,7 +12,7 @@ pub enum PasteContents {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Paste {
-    pub content: PasteContents, // TODO: replace this text field with a content field that is a enum that contains either a string of text called plaintext or a file of data called a file.
+    pub content: PasteContents,
     // #[serde(with = "ts_seconds")]
     pub post_time: DateTime<Local>,
     pub ip_of_poster: String,
