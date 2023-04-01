@@ -462,6 +462,8 @@ pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) ->
     Redirect::to(uri!("/admin"))
 }
 
+// TODO:implement "/admin/metrics/<ip_address>", a page that shows that given ip addresses user metric of their last visited pages struct.
+
 #[get("/paste/view/<paste_id>/delete")]
 /// Route for deleting a paste, this is forceful and requires administration rights.
 /// The paste is either deleted, or if it does not exist, a 404 error is returned.

@@ -8,12 +8,15 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::time::SystemTime;
+use crate::common::PreviousRequestsList;
+
+pub static PREVIOUS_REQUEST_LIST_CAP: usize = 50;
 
 /// A struct handles metrics capturing, this struct is purely a function only implementation struct, and contains no data itself.
 /// It takes a reference to the rockets managed state "TYRState" when it needs to modify data.
 pub struct Metrics {}
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 /// A struct that contains the data each user will carry as we track their metrics, at the moment
 /// simply the number of requests they have sent to the server.
 /// A user is unique to each ip, not device or computer.
@@ -22,6 +25,7 @@ pub struct UserMetric {
     pub logins: Option<Vec<String>>,
     pub last_time_seen: Option<SystemTime>,
     pub last_page_visited: Option<String>,
+    pub previous_pages: Option<PreviousRequestsList>,
     // IDEA: store set number of recent pages visited? e.g. store the 50 most recent requests from a user.
 }
 
@@ -88,6 +92,8 @@ impl Fairing for Metrics {
                     let mut lock = state.unique_users.write().unwrap();
                     match lock.get_mut(&ip.ip().to_string()) {
                         None => {
+                            let mut prq = PreviousRequestsList::new(PREVIOUS_REQUEST_LIST_CAP);
+                            prq.push(&uri.to_string());
                             lock.insert(
                                 ip.ip().to_string(),
                                 UserMetric {
@@ -95,6 +101,7 @@ impl Fairing for Metrics {
                                     logins: Some(vec![]),
                                     last_time_seen: Some(SystemTime::now()),
                                     last_page_visited: Some(uri.to_string()),
+                                    previous_pages: Some(prq),
                                 },
                             );
                         }
@@ -104,6 +111,18 @@ impl Fairing for Metrics {
                             // when ever we see a user, update their last time seen.
                             metric.last_time_seen = Some(SystemTime::now());
                             metric.last_page_visited = Some(uri.to_string());
+
+                            match &mut metric.previous_pages {
+                                None => {
+                                    let mut prq = PreviousRequestsList::new(PREVIOUS_REQUEST_LIST_CAP);
+                                    prq.push(&uri.to_string());
+                                    metric.previous_pages = Some(prq);
+
+                                }
+                                Some(prev) => {
+                                    prev.push(&uri.to_string());
+                                }
+                            }
                         }
                     };
                     spawn(save_metrics(lock.clone()));
