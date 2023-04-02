@@ -116,6 +116,7 @@ fn rocket() -> Rocket<Build> {
                 upload,
                 download_file_paste,
                 upload_multipart,
+                view_metrics_ip,
             ],
         )
         .register("/", catchers![not_found])

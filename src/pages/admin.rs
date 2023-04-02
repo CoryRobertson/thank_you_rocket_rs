@@ -1,4 +1,4 @@
-use crate::common::is_ip_valid;
+use crate::common::{is_ip_valid};
 use crate::metrics::UserMetric;
 use crate::paste::PasteContents;
 use crate::state_management::{save_program_state, TYRState};
@@ -74,10 +74,12 @@ pub fn admin_metrics(_is_admin: IsAdminGuard, state: &State<TYRState>) -> RawHtm
                 None => "".to_string(),
                 Some(url) => url.to_string(),
             };
+            //"/admin/metrics/<ip_address>"
+            let link_to_metrics = format!("<a href=\"/admin/metrics/{0}\">{0}</a>", ip);
 
             output.push_str(&format!(
                 "[{}]: {} : {} <br>",
-                ip, user_metric.request_count, last_page_visited
+                link_to_metrics, user_metric.request_count, last_page_visited
             ));
         }
         output
@@ -462,7 +464,58 @@ pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) ->
     Redirect::to(uri!("/admin"))
 }
 
-// TODO:implement "/admin/metrics/<ip_address>", a page that shows that given ip addresses user metric of their last visited pages struct.
+#[get("/admin/metrics/<ip_address>")]
+pub fn view_metrics_ip(_is_admin_guard: IsAdminGuard, ip_address: String, state: &State<TYRState>) -> RawHtml<String> {
+
+    if let Some(metric) = state.unique_users.read().unwrap().get(&ip_address) {
+        let request_count = metric.request_count;
+        let last_time_seen_seconds = match metric.last_time_seen {
+            None => { 0 }
+            Some(time) => { SystemTime::now().duration_since(time).unwrap_or_default().as_secs() }
+        };
+        let last_page_visited = match &metric.last_page_visited {
+            None => { "No last page known." }
+            Some(last_page) => { last_page }
+        };
+        let previous_pages: String = match &metric.previous_pages {
+            None => { "".to_string() }
+            Some(pages) => {
+                let mut list = String::new();
+                list.push_str("<br>");
+                pages.get_list()
+                    .iter()
+                    .map(|non_escaped_uri| {
+                        html_escape::encode_safe(&non_escaped_uri).to_string()
+                    })
+                    .for_each(|previous_request_uri| list.push_str(&format!("{} <br>",previous_request_uri)));
+                list
+            }
+        };
+
+        RawHtml(html!{
+            "Request count: " (request_count)
+            br;
+            br;
+            "Last time seen: " (last_time_seen_seconds)
+            br;
+            br;
+            "Last page visited: " (last_page_visited)
+            br;
+            br;
+            "Previous requests: " (PreEscaped(previous_pages))
+            br;
+            br;
+        }.into_string())
+    } else {
+        RawHtml(html!{
+            p {"Metric not found."}
+        }.into_string())
+    }
+
+
+
+
+}
 
 #[get("/paste/view/<paste_id>/delete")]
 /// Route for deleting a paste, this is forceful and requires administration rights.
