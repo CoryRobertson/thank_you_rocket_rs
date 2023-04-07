@@ -19,12 +19,11 @@ pub fn is_ip_valid(ip: &str) -> bool {
 }
 
 /// A struct intended to store a list of all of the requests a user has made, to a limit of <limit> number of requests.
-#[derive(Clone,Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct PreviousRequestsList {
     list: Vec<String>,
     limit: usize,
 }
-
 
 impl PreviousRequestsList {
     /// Returns a new PreviousRequestsList with the given limit

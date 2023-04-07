@@ -1,3 +1,4 @@
+use crate::common::PreviousRequestsList;
 use crate::state_management::TYRState;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::uri::Origin;
@@ -8,7 +9,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::time::SystemTime;
-use crate::common::PreviousRequestsList;
 
 pub static PREVIOUS_REQUEST_LIST_CAP: usize = 50;
 
@@ -114,10 +114,10 @@ impl Fairing for Metrics {
 
                             match &mut metric.previous_pages {
                                 None => {
-                                    let mut prq = PreviousRequestsList::new(PREVIOUS_REQUEST_LIST_CAP);
+                                    let mut prq =
+                                        PreviousRequestsList::new(PREVIOUS_REQUEST_LIST_CAP);
                                     prq.push(&uri.to_string());
                                     metric.previous_pages = Some(prq);
-
                                 }
                                 Some(prev) => {
                                     prev.push(&uri.to_string());

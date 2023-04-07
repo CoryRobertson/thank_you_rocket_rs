@@ -46,6 +46,12 @@ pub static MESSAGE_LENGTH_CAP: usize = 150;
 /// The minimum length of a message that can be left by a user.
 pub static MESSAGE_LENGTH_MIN: usize = 3;
 
+/// The maximum length of a paste that can be left by a user.
+pub static PASTE_LENGTH_CAP: usize = 2000;
+
+/// The minimum length of a paste that can be left by a user.
+pub static PASTE_LENGTH_MIN: usize = 10;
+
 /// File name for saving the state to the system.
 pub static SERDE_FILE_NAME: &str = "state.ser";
 
