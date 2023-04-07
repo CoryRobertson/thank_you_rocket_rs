@@ -1,6 +1,6 @@
 use crate::pages::outcome_pages::paste_404;
 use crate::paste::{Paste, PasteContents};
-use crate::verified_guard::GetVerifiedGuard;
+use crate::verified_guard::{GetVerifiedGuard, RequireVerifiedGuard};
 use crate::TYRState;
 use maud::{html, PreEscaped};
 use rocket::data::ToByteUnit;
@@ -37,6 +37,7 @@ pub async fn upload(
     filename: String,
     req: SocketAddr,
     jar: &CookieJar<'_>,
+    _require_verified: RequireVerifiedGuard
 ) -> Redirect {
     let mut file_content = String::new();
     let _file_size = paste
@@ -89,16 +90,9 @@ pub async fn upload_multipart(
     state: &State<TYRState>,
     req: SocketAddr,
     jar: &CookieJar<'_>,
+    _require_verified: RequireVerifiedGuard
 ) -> Redirect {
     let options = MultipartFormDataOptions::with_multipart_form_data_fields(vec![
-        // MultipartFormDataField::file("photo").content_type_by_string(Some(mime::IMAGE_STAR)).unwrap(),
-        // MultipartFormDataField::raw("fingerprint").size_limit(4096),
-        // MultipartFormDataField::text("name"),
-        // MultipartFormDataField::text("email").repetition(Repetition::fixed(3)),
-        // MultipartFormDataField::text("email"),
-        // MultipartFormDataField::bytes("data"),
-        // MultipartFormDataField::bytes("text"),
-        // MultipartFormDataField::text("text"),
         MultipartFormDataField::text("data"), // this one allows for random txt files
         MultipartFormDataField::bytes("data"),
     ]);
@@ -171,22 +165,23 @@ pub async fn upload_multipart(
                         vec_bytes.hash(&mut hasher);
 
                         let mut lock = state.pastes.write().unwrap();
+                        let file_hash = hasher.finish().to_string();
 
                         lock.insert(
-                            hasher.finish().to_string(),
+                            file_hash.clone(),
                             Paste::new_file_paste(path, &req, jar),
                         );
 
-                        return Redirect::to(uri!("/"));
+                        return Redirect::to(uri!(view_paste(file_hash)));
                     }
                 }
             }
 
-            println!("{:?}", multipart_form_data);
+            // println!("{:?}", multipart_form_data);
         }
-        Err(err) => {
-            println!("{}", err);
-            println!("{}", content_type);
+        Err(_err) => {
+            // println!("{}", err);
+            // println!("{}", content_type);
         }
     }
 
@@ -231,7 +226,7 @@ pub async fn download_file_paste(
     state: &State<TYRState>,
 ) -> Result<DownloadResponse, Status> {
     let binding = state.pastes.read().unwrap().clone();
-    let paste_opt = binding.get(&paste_id);
+    let paste_opt = binding.get(&paste_id.clone());
     match paste_opt {
         None => Err(Default::default()),
         Some(paste) => match &paste.content {
@@ -247,36 +242,38 @@ pub async fn download_file_paste(
                         }
                     })
             }
-            PasteContents::PlainText(_) => Err(Default::default()),
+            PasteContents::PlainText(text) => {
+                Ok(DownloadResponse::from_vec(text.clone().into_bytes(),Some(paste_id),None))
+            },
         },
     }
 }
 
 #[get("/paste/view/<paste_id>")]
-/// Page for viewing created pastes, viewing only, no download prompt.
+/// Page for viewing created pastes, viewing only, download optional.
 pub fn view_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -> RawHtml<String> {
     let binding = state.pastes.read().unwrap();
     let paste_opt = binding.get(&paste_id);
-
-    //TODO: further test the quality of this escaping, just incase :)
+    let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
+    let file_button = format!("<button onclick=\"window.location.href=\'/paste/view/{}/file\';\">Download file</button>", paste_id);
 
     let escaped = match paste_opt {
         None => paste_404(),
         Some(text_paste) => {
             match &text_paste.content {
                 PasteContents::File(path) => {
-                    // "FILE PASTE, NO DISPLAY YET".to_string()
                     match File::open(path).ok() {
                         None => "File un-readable. Error occurred.".to_string(),
                         Some(mut file) => {
                             let mut file_contents = String::new();
                             file.read_to_string(&mut file_contents).unwrap_or_default();
-                            file_contents
+                            let escaped = html_escape::encode_safe(&file_contents); // escape so no xss can happen!
+                            escaped.to_string()
                         }
                     }
                 }
                 PasteContents::PlainText(text) => {
-                    let escaped = html_escape::encode_safe(&text);
+                    let escaped = html_escape::encode_safe(&text); // escape so no xss can happen!
                     escaped.replace("\r\n", "<br>").replace('\n', "<br>")
                 }
             }
@@ -285,7 +282,9 @@ pub fn view_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -
 
     RawHtml(
         html! {
-            (PreEscaped(escaped))
+            (PreEscaped(back_button))
+            (PreEscaped(file_button))
+            p {(PreEscaped(escaped))}
         }
         .into_string(),
     )
@@ -298,6 +297,7 @@ pub fn new_paste(
     _state: &State<TYRState>,
     is_verified: GetVerifiedGuard,
 ) -> RawHtml<String> {
+    let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
     if is_verified.0 {
         RawHtml(
             html! {
@@ -321,6 +321,8 @@ pub fn new_paste(
             <button class="submit-btn" type="submit">Upload</button>
         </form>
     "#))
+                br;
+                (PreEscaped(back_button))
             }
             .into_string(),
         )
@@ -337,6 +339,8 @@ pub fn new_paste(
                 <input type="submit" value="Submit paste">
             </form>
     "#))
+                br;
+                (PreEscaped(back_button))
             }
             .into_string(),
         )
