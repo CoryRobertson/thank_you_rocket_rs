@@ -216,6 +216,7 @@ mod test {
                 logins: None,
                 last_time_seen: None,
                 last_page_visited: None,
+                previous_pages: None,
             },
         );
         state.unique_users.write().unwrap().insert(
@@ -225,6 +226,7 @@ mod test {
                 logins: None,
                 last_time_seen: None,
                 last_page_visited: None,
+                previous_pages: None,
             },
         );
         state
