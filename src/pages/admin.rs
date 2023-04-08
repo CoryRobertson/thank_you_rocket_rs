@@ -414,6 +414,7 @@ pub struct Ip {
 #[post("/admin/ban_ip", data = "<ip>")]
 /// Route for banning an ip, requires an admin cookie, and a form submission containing an ip address.
 pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) -> Redirect {
+    // TODO: make this if statement only check for banning ips and unbanning ips, and removing cooldowns.
     if is_ip_valid(&ip.ip) {
         match ip.ip_action {
             IpAction::Ban => {
