@@ -53,4 +53,16 @@ impl Paste {
             login_cookie_of_poster: { jar.get("login").map(|cookie| cookie.to_string()) },
         }
     }
+    pub fn new_file_paste_with_date(file_path: PathBuf, req_socket: &SocketAddr, jar: &CookieJar, time: DateTime<Local>) -> Self {
+        Paste {
+            content: PasteContents::File(file_path),
+            post_time: time,
+            ip_of_poster: req_socket.ip().to_string(),
+            view_count: 0,
+            download_count: 0,
+            time_of_last_download: Local::now(),
+            time_of_last_view: Local::now(),
+            login_cookie_of_poster: { jar.get("login").map(|cookie| cookie.to_string()) },
+        }
+    }
 }

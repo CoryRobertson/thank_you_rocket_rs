@@ -2,7 +2,7 @@ use crate::pages::outcome_pages::paste_404;
 use crate::paste::{Paste, PasteContents};
 use crate::verified_guard::{GetVerifiedGuard, RequireVerifiedGuard};
 use crate::{TYRState, PASTE_LENGTH_CAP, PASTE_LENGTH_MIN};
-use chrono::Local;
+use chrono::{Datelike, Local, Timelike};
 use maud::{html, PreEscaped};
 use rocket::data::ToByteUnit;
 use rocket::form::Form;
@@ -16,6 +16,7 @@ use rocket_multipart_form_data::{
     MultipartFormData, MultipartFormDataField, MultipartFormDataOptions,
 };
 use std::collections::hash_map::DefaultHasher;
+use std::fs;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io::{ErrorKind, Read, Write};
@@ -78,6 +79,7 @@ pub async fn upload(
 
 #[post("/paste/upload", data = "<data>")]
 /// Route for uploading a file to the paste section using the in web browser function from "/paste/new"
+/// This post request will place the file in a folder with the date of the time of upload, or redirect the user to an error page if that fails.
 /// echo "this is a test" | curl --data-binary @- http://localhost:8080/paste/upload/<filename>
 pub async fn upload_multipart(
     content_type: &ContentType,
@@ -95,12 +97,25 @@ pub async fn upload_multipart(
     match MultipartFormData::parse(content_type, data, options).await {
         Ok(multipart_form_data) => {
             if let Some(file) = multipart_form_data.texts.get("data") {
-                // println!("{:?}", file);
                 if let Some(text_field) = file.get(0) {
+                    let timestamp = Local::now();
+                    let timestamp_folder = format!("{}.{}.{}-{}.{}",timestamp.month(),timestamp.day(),timestamp.year(),timestamp.hour(),timestamp.minute());
                     let path = PathBuf::from(format!(
-                        "./output/file_uploads/{}",
+                        "./output/file_uploads/{}/{}",
+                        timestamp_folder,
                         text_field.file_name.clone().unwrap_or_default()
-                    ));
+                    )); // path to file absolutely
+                    let path_without_file = PathBuf::from(format!(
+                        "./output/file_uploads/{}",
+                        timestamp_folder
+                    )); // create the path to the file without the file name, so we can create all needed directories
+                    match fs::create_dir_all(path_without_file) {
+                        Ok(_) => {}
+                        Err(_) => {
+                            return Redirect::to(uri!("/error_message"));
+                        }
+                    } // create all directories needed
+
                     if !path.exists() {
                         let mut file = match File::create(path.clone()) {
                             Ok(f) => f,
@@ -110,9 +125,7 @@ pub async fn upload_multipart(
                         };
 
                         match file.write_all(text_field.text.as_bytes()) {
-                            Ok(_) => {
-                                // println!("ok file write all");
-                            }
+                            Ok(_) => {}
                             Err(_) => return Redirect::to(uri!("/error_message")),
                         }
 
@@ -125,7 +138,7 @@ pub async fn upload_multipart(
 
                         lock.insert(
                             hasher.finish().to_string(),
-                            Paste::new_file_paste(path, &req, jar),
+                            Paste::new_file_paste_with_date(path, &req, jar,timestamp),
                         );
 
                         return Redirect::to(uri!("/"));
@@ -135,10 +148,25 @@ pub async fn upload_multipart(
                 if let Some(raw_bytes_data) = raw_bytes_vec.get(0) {
                     let vec_bytes = &raw_bytes_data.raw;
 
+                    let timestamp = Local::now();
+                    let timestamp_folder = format!("{}.{}.{}-{}.{}",timestamp.month(),timestamp.day(),timestamp.year(),timestamp.hour(),timestamp.minute());
                     let path = PathBuf::from(format!(
-                        "./output/file_uploads/{}",
+                        "./output/file_uploads/{}/{}",
+                        timestamp_folder,
                         raw_bytes_data.file_name.clone().unwrap_or_default()
                     ));
+                    let path_without_file = PathBuf::from(format!(
+                        "./output/file_uploads/{}",
+                        timestamp_folder
+                    ));
+
+                    match fs::create_dir_all(path_without_file) {
+                        Ok(_) => {}
+                        Err(_) => {
+                            return Redirect::to(uri!("/error_message"));
+                        }
+                    }
+
                     if !path.exists() {
                         let mut file = match File::create(path.clone()) {
                             Ok(f) => f,
@@ -162,21 +190,15 @@ pub async fn upload_multipart(
                         let mut lock = state.pastes.write().unwrap();
                         let file_hash = hasher.finish().to_string();
 
-                        lock.insert(file_hash.clone(), Paste::new_file_paste(path, &req, jar));
+                        lock.insert(file_hash.clone(), Paste::new_file_paste_with_date(path, &req, jar,timestamp));
 
                         return Redirect::to(uri!(view_paste(file_hash)));
                     }
                 }
             }
-
-            // println!("{:?}", multipart_form_data);
         }
-        Err(_err) => {
-            // println!("{}", err);
-            // println!("{}", content_type);
-        }
+        Err(_err) => {}
     }
-
     return Redirect::to(uri!("/error_message"));
 }
 
