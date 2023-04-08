@@ -1492,7 +1492,7 @@ dependencies = [
 
 [[package]]
 name = "thank_you_rocket_rs"
-version = "0.9.5"
+version = "0.9.6"
 dependencies = [
  "argon2",
  "chrono",
