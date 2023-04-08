@@ -51,7 +51,7 @@ pub fn index(
     };
 
     let is_verified_text = match is_verified.0 {
-        true => "Verified Ip Address.",
+        true => "Verified",
         false => "",
     };
 

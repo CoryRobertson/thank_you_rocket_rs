@@ -414,13 +414,15 @@ pub struct Ip {
 #[post("/admin/ban_ip", data = "<ip>")]
 /// Route for banning an ip, requires an admin cookie, and a form submission containing an ip address.
 pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) -> Redirect {
-    // TODO: make this if statement only check for banning ips and unbanning ips, and removing cooldowns.
-    if is_ip_valid(&ip.ip) {
-        match ip.ip_action {
-            IpAction::Ban => {
+
+    match ip.ip_action {
+        IpAction::Ban => {
+            if is_ip_valid(&ip.ip) {
                 state.banned_ips.write().unwrap().push(ip.ip.clone());
             }
-            IpAction::Unban => {
+        }
+        IpAction::Unban => {
+            if is_ip_valid(&ip.ip) {
                 let banned_ips = { state.banned_ips.read().unwrap().clone() };
                 for (index, loop_ip) in banned_ips.iter().enumerate() {
                     if loop_ip.eq(&ip.ip) {
@@ -429,39 +431,44 @@ pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) ->
                     }
                 }
             }
-            IpAction::ResetCooldown => match state.messages.write().unwrap().get_mut(&ip.ip) {
-                None => {}
-                Some(user) => {
-                    user.last_time_post = UNIX_EPOCH;
-                }
-            },
-            IpAction::AddVerified => {
-                let mut lock = state.admin_state.write().unwrap();
-                match lock.verified_list.as_mut() {
-                    None => {
-                        lock.verified_list = Some(vec![ip.ip.to_string()]);
-                    }
-                    Some(list) => {
-                        list.push(ip.ip.to_string());
+        }
+        IpAction::ResetCooldown => {
+            if is_ip_valid(&ip.ip) {
+                match state.messages.write().unwrap().get_mut(&ip.ip) {
+                    None => {}
+                    Some(user) => {
+                        user.last_time_post = UNIX_EPOCH;
                     }
                 }
             }
-            IpAction::RemoveVerified => {
-                let mut lock = state.admin_state.write().unwrap();
-                match lock.verified_list.as_mut() {
-                    None => {}
-                    Some(list) => {
-                        for (index, ip_in_list) in list.clone().iter().enumerate() {
-                            if ip_in_list.eq(&ip.ip.to_string()) {
-                                list.remove(index);
-                            }
+        },
+        IpAction::AddVerified => {
+            let mut lock = state.admin_state.write().unwrap();
+            match lock.verified_list.as_mut() {
+                None => {
+                    lock.verified_list = Some(vec![ip.ip.to_string()]);
+                }
+                Some(list) => {
+                    list.push(ip.ip.to_string());
+                }
+            }
+        }
+        IpAction::RemoveVerified => {
+            let mut lock = state.admin_state.write().unwrap();
+            match lock.verified_list.as_mut() {
+                None => {}
+                Some(list) => {
+                    for (index, ip_in_list) in list.clone().iter().enumerate() {
+                        if ip_in_list.eq(&ip.ip.to_string()) {
+                            list.remove(index);
                         }
                     }
                 }
             }
         }
-        save_program_state(state, &PathBuf::from("./output/state.ser"));
     }
+    save_program_state(state, &PathBuf::from("./output/state.ser"));
+
     Redirect::to(uri!("/admin"))
 }
 

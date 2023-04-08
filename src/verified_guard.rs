@@ -21,7 +21,7 @@ impl<'r> FromRequest<'r> for GetVerifiedGuard {
                 // if the user is logged in
                 if let Some(login_cookie) = req.cookies().get("login") {
                     // if the users login is contained within the verified ver_list.
-                    if ver_list.contains(&login_cookie.to_string()) {
+                    if ver_list.contains(&login_cookie.value().to_string()) {
                         return Outcome::Success(Self(true));
                     }
                 }
