@@ -234,9 +234,10 @@ pub fn view_pastes_admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> Ra
     let pastes = state.pastes.read().unwrap();
 
     for (paste_id, paste) in pastes.iter() {
+        let id_escaped_paste = html_escape::encode_safe(&paste_id);
         let deletion_link_for_paste =
-            format!("<a href=\"/paste/view/{0}/delete\">DELETE</a>", paste_id);
-        let link_to_paste = format!("<a href=\"/paste/view/{0}\">{0}</a>", paste_id);
+            format!("<a href=\"/paste/view/{0}/delete\">DELETE</a>", id_escaped_paste);
+        let link_to_paste = format!("<a href=\"/paste/view/{0}\">-{0}-</a>", id_escaped_paste);
         match &paste.content {
             PasteContents::File(path) => {
                 let (file_content, file_name) = match File::open(path).ok() {
@@ -258,7 +259,7 @@ pub fn view_pastes_admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> Ra
                     }
                 };
                 paste_list.push_str(&format!(
-                    "{} : {} : {} : {} <br>",
+                    "[{}] : {} : {} : {} <br>",
                     link_to_paste, file_name, file_content, deletion_link_for_paste
                 ));
             }
@@ -276,7 +277,7 @@ pub fn view_pastes_admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> Ra
                 };
 
                 paste_list.push_str(&format!(
-                    "{} : {} : {} <br>",
+                    "[{}] : {} : {} <br>",
                     link_to_paste, final_text, deletion_link_for_paste
                 ));
             }
@@ -414,7 +415,6 @@ pub struct Ip {
 #[post("/admin/ban_ip", data = "<ip>")]
 /// Route for banning an ip, requires an admin cookie, and a form submission containing an ip address.
 pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) -> Redirect {
-
     match ip.ip_action {
         IpAction::Ban => {
             if is_ip_valid(&ip.ip) {
@@ -441,7 +441,7 @@ pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) ->
                     }
                 }
             }
-        },
+        }
         IpAction::AddVerified => {
             let mut lock = state.admin_state.write().unwrap();
             match lock.verified_list.as_mut() {

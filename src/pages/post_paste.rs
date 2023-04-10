@@ -99,16 +99,21 @@ pub async fn upload_multipart(
             if let Some(file) = multipart_form_data.texts.get("data") {
                 if let Some(text_field) = file.get(0) {
                     let timestamp = Local::now();
-                    let timestamp_folder = format!("{}.{}.{}-{}.{}",timestamp.month(),timestamp.day(),timestamp.year(),timestamp.hour(),timestamp.minute());
+                    let timestamp_folder = format!(
+                        "{}.{}.{}-{}.{}",
+                        timestamp.month(),
+                        timestamp.day(),
+                        timestamp.year(),
+                        timestamp.hour(),
+                        timestamp.minute()
+                    );
                     let path = PathBuf::from(format!(
                         "./output/file_uploads/{}/{}",
                         timestamp_folder,
                         text_field.file_name.clone().unwrap_or_default()
                     )); // path to file absolutely
-                    let path_without_file = PathBuf::from(format!(
-                        "./output/file_uploads/{}",
-                        timestamp_folder
-                    )); // create the path to the file without the file name, so we can create all needed directories
+                    let path_without_file =
+                        PathBuf::from(format!("./output/file_uploads/{}", timestamp_folder)); // create the path to the file without the file name, so we can create all needed directories
                     match fs::create_dir_all(path_without_file) {
                         Ok(_) => {}
                         Err(_) => {
@@ -138,7 +143,7 @@ pub async fn upload_multipart(
 
                         lock.insert(
                             hasher.finish().to_string(),
-                            Paste::new_file_paste_with_date(path, &req, jar,timestamp),
+                            Paste::new_file_paste_with_date(path, &req, jar, timestamp),
                         );
 
                         return Redirect::to(uri!("/"));
@@ -149,16 +154,21 @@ pub async fn upload_multipart(
                     let vec_bytes = &raw_bytes_data.raw;
 
                     let timestamp = Local::now();
-                    let timestamp_folder = format!("{}.{}.{}-{}.{}",timestamp.month(),timestamp.day(),timestamp.year(),timestamp.hour(),timestamp.minute());
+                    let timestamp_folder = format!(
+                        "{}.{}.{}-{}.{}",
+                        timestamp.month(),
+                        timestamp.day(),
+                        timestamp.year(),
+                        timestamp.hour(),
+                        timestamp.minute()
+                    );
                     let path = PathBuf::from(format!(
                         "./output/file_uploads/{}/{}",
                         timestamp_folder,
                         raw_bytes_data.file_name.clone().unwrap_or_default()
                     ));
-                    let path_without_file = PathBuf::from(format!(
-                        "./output/file_uploads/{}",
-                        timestamp_folder
-                    ));
+                    let path_without_file =
+                        PathBuf::from(format!("./output/file_uploads/{}", timestamp_folder));
 
                     match fs::create_dir_all(path_without_file) {
                         Ok(_) => {}
@@ -190,7 +200,10 @@ pub async fn upload_multipart(
                         let mut lock = state.pastes.write().unwrap();
                         let file_hash = hasher.finish().to_string();
 
-                        lock.insert(file_hash.clone(), Paste::new_file_paste_with_date(path, &req, jar,timestamp));
+                        lock.insert(
+                            file_hash.clone(),
+                            Paste::new_file_paste_with_date(path, &req, jar, timestamp),
+                        );
 
                         return Redirect::to(uri!(view_paste(file_hash)));
                     }
@@ -217,12 +230,25 @@ pub fn new_paste_post(
     let text_hash = hasher.finish();
     let mut lock = state.pastes.write().unwrap();
     let paste_struct = Paste::new(paste.text.clone(), &req, jar);
+
     // custom url is either the forms given custom url, or the text hash if no custom url is given.
-    let custom_url = paste.custom_url.clone().unwrap_or(text_hash.to_string());
+    let custom_url = {
+        let possible_url = paste.custom_url.clone().unwrap_or(text_hash.to_string());
+        // we need to guarantee that the url given to the paste needs to contain either a hash, or a custom set url, and that it cant be empty, contain a space, or not be ascii
+        if possible_url.is_empty() || possible_url.contains(" ") || !possible_url.is_ascii() {
+            text_hash.to_string()
+        } else {
+            html_escape::encode_safe(&possible_url).to_string()
+        }
+    };
+
     let url_already_exists = { lock.iter().map(|(id, _)| id).any(|id| id == &custom_url) }; // variable for if the given custom url already exists
+
+    println!("custom url: {}", custom_url);
 
     if is_verified.0 && !url_already_exists {
         // if the user is both verified, and this given custom url does not exist.
+
         lock.insert(custom_url.clone(), paste_struct);
         let uri = uri!(view_paste(custom_url));
         Redirect::to(uri)
