@@ -235,8 +235,10 @@ pub fn view_pastes_admin(_is_admin: IsAdminGuard, state: &State<TYRState>) -> Ra
 
     for (paste_id, paste) in pastes.iter() {
         let id_escaped_paste = html_escape::encode_safe(&paste_id);
-        let deletion_link_for_paste =
-            format!("<a href=\"/paste/view/{0}/delete\">DELETE</a>", id_escaped_paste);
+        let deletion_link_for_paste = format!(
+            "<a href=\"/paste/view/{0}/delete\">DELETE</a>",
+            id_escaped_paste
+        );
         let link_to_paste = format!("<a href=\"/paste/view/{0}\">-{0}-</a>", id_escaped_paste);
         match &paste.content {
             PasteContents::File(path) => {

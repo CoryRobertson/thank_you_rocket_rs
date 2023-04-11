@@ -231,11 +231,16 @@ pub fn new_paste_post(
     let mut lock = state.pastes.write().unwrap();
     let paste_struct = Paste::new(paste.text.clone(), &req, jar);
 
-    // custom url is either the forms given custom url, or the text hash if no custom url is given.
+    // custom url is either the forms given custom url, or the text hash if no custom url is given, or is invalid.
     let custom_url = {
         let possible_url = paste.custom_url.clone().unwrap_or(text_hash.to_string());
         // we need to guarantee that the url given to the paste needs to contain either a hash, or a custom set url, and that it cant be empty, contain a space, or not be ascii
-        if possible_url.is_empty() || possible_url.contains(" ") || !possible_url.is_ascii() {
+        if possible_url.is_empty()
+            || possible_url.contains(' ')
+            || !possible_url.is_ascii()
+            || possible_url.contains('/')
+            || possible_url.contains('\\')
+        {
             text_hash.to_string()
         } else {
             html_escape::encode_safe(&possible_url).to_string()
@@ -243,8 +248,6 @@ pub fn new_paste_post(
     };
 
     let url_already_exists = { lock.iter().map(|(id, _)| id).any(|id| id == &custom_url) }; // variable for if the given custom url already exists
-
-    println!("custom url: {}", custom_url);
 
     if is_verified.0 && !url_already_exists {
         // if the user is both verified, and this given custom url does not exist.
