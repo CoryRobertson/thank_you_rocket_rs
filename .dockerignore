@@ -1,0 +1,9 @@
+debug/
+target/
+**/*.rs.bk
+*.pdb
+/rhythm_rs/
+/rhythm_rs_dist/
+/discreet_math_fib_dist/
+/compose-output/
+/.git

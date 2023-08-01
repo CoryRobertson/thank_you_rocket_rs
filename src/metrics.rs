@@ -26,7 +26,6 @@ pub struct UserMetric {
     pub last_time_seen: Option<SystemTime>,
     pub last_page_visited: Option<String>,
     pub previous_pages: Option<PreviousRequestsList>,
-    // IDEA: store set number of recent pages visited? e.g. store the 50 most recent requests from a user.
 }
 
 /// Function that checks if the given ip address is banned
