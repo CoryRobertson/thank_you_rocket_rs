@@ -4,6 +4,9 @@ services:
   web:
     image: "thank_you_rocket:latest"
     container_name: "thank_you_rocket"
+    build:
+      context: "./"
+      dockerfile: "./Dockerfile"
     restart: unless-stopped
     ports:
         - "80:80"

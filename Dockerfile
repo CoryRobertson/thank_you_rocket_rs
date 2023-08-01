@@ -1,4 +1,4 @@
-FROM rust:1.66 as builder
+FROM rust:1.71.0 as builder
 COPY . .
 # install the wasm target, needed for building rhythm and fib
 RUN rustup target add wasm32-unknown-unknown

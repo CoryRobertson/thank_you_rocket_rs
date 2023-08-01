@@ -1,3 +1,4 @@
+use crate::pages::admin::check_is_admin;
 use crate::pages::outcome_pages::paste_404;
 use crate::paste::{Paste, PasteContents};
 use crate::verified_guard::{GetVerifiedGuard, RequireVerifiedGuard};
@@ -279,8 +280,11 @@ pub async fn download_file_paste(
     match paste_opt {
         None => Err(Default::default()),
         Some(paste) => {
+            // FIXME: this does not seem to want to work every time, maybe change to an atomic but I dont see why this does not work.
+            //  Potentially because this is an async function?
             paste.download_count += 1;
             paste.time_of_last_download = Local::now();
+
             match &paste.content {
                 PasteContents::File(path) => {
                     let file_name = path.file_name().unwrap().to_str();
@@ -306,7 +310,12 @@ pub async fn download_file_paste(
 
 #[get("/paste/view/<paste_id>")]
 /// Page for viewing created pastes, viewing only, download optional.
-pub fn view_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -> RawHtml<String> {
+pub fn view_paste(
+    paste_id: String,
+    _req: SocketAddr,
+    state: &State<TYRState>,
+    jar: &CookieJar,
+) -> RawHtml<String> {
     let mut binding = state.pastes.write().unwrap();
     let paste_opt = binding.get_mut(&paste_id);
     let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
@@ -314,6 +323,17 @@ pub fn view_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -
         "<button onclick=\"window.location.href=\'/paste/view/{}/file\';\">Download file</button>",
         paste_id
     );
+
+    let is_admin = check_is_admin(state, jar);
+    let paste_info = match paste_opt {
+        None => "Paste does not exist, no metrics available.".to_string(),
+        Some(ref paste) => {
+            format!("View Count: {},Download count: {}, Ip of poster: {}, Time of last view: {}, Time of last download: {}, Login cookie: {:?}, Post time: {}",
+                    paste.view_count, paste.download_count,paste.ip_of_poster,
+                    paste.time_of_last_view,paste.time_of_last_download,paste.login_cookie_of_poster,
+            paste.post_time)
+        }
+    };
 
     let escaped = match paste_opt {
         None => paste_404(),
@@ -344,6 +364,9 @@ pub fn view_paste(paste_id: String, _req: SocketAddr, state: &State<TYRState>) -
         html! {
             (PreEscaped(back_button))
             (PreEscaped(file_button))
+            @if is_admin {
+                p {(paste_info)}
+            }
             p {(PreEscaped(escaped))}
         }
         .into_string(),
@@ -358,6 +381,7 @@ pub fn new_paste(
     is_verified: GetVerifiedGuard,
 ) -> RawHtml<String> {
     let back_button = "<button onclick=\"window.location.href=\'/\';\">Go back</button>";
+
     if is_verified.0 {
         RawHtml(
             html! {

@@ -7,6 +7,7 @@ use crate::{ONLINE_TIMER, POST_COOLDOWN};
 use chrono_tz::US::Pacific;
 use maud::{html, PreEscaped};
 use rocket::form::Form;
+use rocket::http::CookieJar;
 use rocket::outcome::Outcome;
 use rocket::request::FromRequest;
 use rocket::response::content::RawHtml;
@@ -472,6 +473,20 @@ pub fn ban_ip(_is_admin: IsAdminGuard, state: &State<TYRState>, ip: Form<Ip>) ->
     save_program_state(state, &PathBuf::from("./output/state.ser"));
 
     Redirect::to(uri!("/admin"))
+}
+
+/// Returns true if the user is an admin.
+/// Requirements for this are the state holding the login cookie of the user in the admin_hashes vector.
+pub fn check_is_admin(state: &State<TYRState>, jar: &CookieJar) -> bool {
+    return match jar.get("login") {
+        None => false,
+        Some(cookie) => state
+            .admin_state
+            .read()
+            .unwrap()
+            .admin_hashes
+            .contains(&cookie.value().to_string()),
+    };
 }
 
 #[get("/admin/metrics/<ip_address>")]

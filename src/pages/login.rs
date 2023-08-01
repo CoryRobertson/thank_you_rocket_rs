@@ -23,7 +23,7 @@ lazy_static! {
                 salt
             }
             Err(_) => {
-                let mut rng = OsRng::default();
+                let mut rng = OsRng;
                 let salt_string = SaltString::generate(&mut rng);
                 let mut file = File::create("./output/salt.key").unwrap();
                 let _ = file.write(salt_string.as_bytes()).unwrap();

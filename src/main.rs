@@ -19,6 +19,8 @@ use rocket::{Build, Rocket};
 use std::fs;
 use std::path::PathBuf;
 
+// TODO: implement the usage of smol db ?
+
 mod common;
 mod message;
 mod metrics;
