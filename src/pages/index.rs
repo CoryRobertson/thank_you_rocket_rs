@@ -88,7 +88,7 @@ pub fn index(
         h1 {"Thank you rocket!"}
         p {"Welcome to thank you rocket, my home page!"}
         p {"You can write a message, viewable only to people from the same ip address as the user who sent the message, and myself, the website host."}
-        p {"Optionally, you can also \"login\" which makes messages you write only visible to people who type the same password, the website host."}
+        p {"Optionally, you can also \"login\" which makes messages you write only visible to people who type the same password, and the website host."}
         p {"Feel free to write a message if anything I have made was interesting to you, or if I helped in any sort of way. :)"}
         p {(online_user_text)}
 
