@@ -13,11 +13,14 @@ use crate::pages::post_paste::*;
 use crate::pages::submit_message::submit_message;
 use crate::pages::view::view;
 use crate::state_management::*;
+use chrono::Local;
 use rocket::fairing::AdHoc;
 use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
-use std::fs;
 use std::path::PathBuf;
+use std::thread::sleep;
+use std::time::Duration;
+use std::{fs, thread};
 
 // TODO: implement the usage of smol db ?
 
@@ -54,6 +57,8 @@ pub static PASTE_LENGTH_CAP: usize = 2000;
 /// The minimum length of a paste that can be left by a user.
 pub static PASTE_LENGTH_MIN: usize = 10;
 
+pub const PASTE_STALE_LIMIT: i64 = 30;
+
 /// File name for saving the state to the system.
 pub static SERDE_FILE_NAME: &str = "state.ser";
 
@@ -88,7 +93,32 @@ fn rocket() -> Rocket<Build> {
 
     // TODO: make the program periodically save its state even if its not shutting down, most likely through a second thread that carries a reference to the state.
 
-    // TODO: make the same thread that saves program state periodically also clean up old pastes, maybe of age > 30 days?
+    let old_paste_tyr_state = state.clone();
+    let _old_paste_thread = thread::spawn(move || {
+        loop {
+            sleep(Duration::from_secs(
+                60*60*24, /* 24 hour sleep duration 60 * 60 * 24 */
+            ));
+            // lock paste list for editing
+            let mut lock = old_paste_tyr_state.pastes.write().unwrap();
+            // make a list of all pastes which have gone stale e.g. time of last view >= 30 days
+            let removals = lock
+                .iter()
+                .filter(|(_, paste)| {
+                    let age = Local::now().signed_duration_since(paste
+                        .time_of_last_view)
+                        .num_days();
+                        age >= PASTE_STALE_LIMIT && PASTE_STALE_LIMIT <= 0
+                })
+                .map(|(name, _)| name.to_string())
+                .collect::<Vec<String>>();
+            // remove all pastes which are old
+            for removal in &removals {
+                lock.remove(removal);
+            }
+
+        }
+    });
 
     rocket::build()
         .manage(state)
