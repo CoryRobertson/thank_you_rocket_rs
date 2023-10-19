@@ -12,3 +12,12 @@ services:
         - "80:80"
     volumes:
         - "./compose-output:/output"
+  db:
+    build: https://github.com/CoryRobertson/smol_db.git#main
+    image: smol_db_server
+#    ports:
+#      - "8222:8222"
+    container_name: "smol_db_server_instance1"
+    restart: unless-stopped
+    volumes:
+      - "./smol_db:/data"

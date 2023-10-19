@@ -21,6 +21,7 @@ use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::Duration;
 use std::{fs, thread};
+use smol_db_client::prelude::DBSettings;
 
 // TODO: implement the usage of smol db ?
 
@@ -68,6 +69,9 @@ pub static RENDER_FILE_NAME: &str = "messages.sav";
 /// Version number for the cargo package version.
 pub static VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 
+pub const DB_CLIENT_KEY: &str = "super secret db key";
+pub const DB_MESSAGES_TABLE_NAME: &str = "MESSAGES";
+
 #[launch]
 fn rocket() -> Rocket<Build> {
     // using this return type isn't shown in the documentation from my minimal looking, but makes intellij happy.
@@ -77,6 +81,15 @@ fn rocket() -> Rocket<Build> {
     println!("Loaded message data: {:?}", load.messages);
 
     let state = TYRState::from_state_save(load);
+
+    {
+        let mut client = smol_db_client::SmolDbClient::new("db:8222").unwrap_or(smol_db_client::SmolDbClient::new("localhost:8222").unwrap());
+        client.set_access_key(DB_CLIENT_KEY.to_string()).unwrap();
+        let _ = client.create_db(DB_MESSAGES_TABLE_NAME,DBSettings::default());
+
+
+        *state.db_client.lock().unwrap() = Option::from(client);
+    }
 
     let metrics_fairing: Metrics = Metrics {};
 

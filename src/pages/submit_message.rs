@@ -2,7 +2,7 @@ use crate::message::{Message, NewMessage};
 use crate::state_management::save_program_state;
 use crate::user::User;
 use crate::verified_guard::GetVerifiedGuard;
-use crate::TYRState;
+use crate::{DB_MESSAGES_TABLE_NAME, TYRState};
 use crate::{MESSAGE_LENGTH_CAP, MESSAGE_LENGTH_MIN};
 use chrono::Utc;
 use rocket::form::Form;
@@ -64,6 +64,7 @@ pub fn submit_message(
                     time_stamp: Utc::now(),
                     user_hash: None,
                 }; // message object used for pushing to the user
+                state.db_client.lock().unwrap().unwrap().write_db_generic(DB_MESSAGES_TABLE_NAME,user_ip.to_string().as_str(),User::new(msg));
                 lock.insert(user_ip.to_string(), User::new(msg)); // insert the new vector with the key of the users ip address
             }
             Some(user) => {

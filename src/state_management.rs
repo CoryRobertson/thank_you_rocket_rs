@@ -9,7 +9,9 @@ use std::fs;
 use std::fs::File;
 use std::io::{BufWriter, Read, Write};
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
+use smol_db_client::Role::Admin;
+use smol_db_client::SmolDbClient;
 
 #[derive(Serialize, Deserialize)]
 /// A serializable version of the TYRState struct, used only for saving.
@@ -23,10 +25,22 @@ pub struct StateSave {
     pub pastes: Option<HashMap<String, Paste>>,
 }
 
+impl StateSave {
+    pub fn new() -> Self {
+        Self {
+            messages: Default::default(),
+            banned_ips: Some(vec![]),
+            admin_state: Some(AdminState::default()),
+            unique_users: Some(HashMap::new()),
+            pastes: Some(HashMap::new()),
+        }
+    }
+}
+
 /// The state struct for the rocket web frame work.
 /// Content in this struct but not in StateSave are not persisted.
 /// When adding new fields, modify TYRState::from_state_save() accordingly
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TYRState {
     // hash map consists of the ip address as a key, and the user struct itself.
     pub messages: Arc<RwLock<HashMap<String, User>>>,
@@ -34,6 +48,7 @@ pub struct TYRState {
     pub admin_state: Arc<RwLock<AdminState>>,
     pub unique_users: Arc<RwLock<HashMap<String, UserMetric>>>,
     pub pastes: Arc<RwLock<HashMap<String, Paste>>>,
+    pub db_client: Arc<Mutex<Option<SmolDbClient>>>,
 }
 
 impl TYRState {
@@ -46,6 +61,7 @@ impl TYRState {
             admin_state: Arc::new(RwLock::new(state_save.admin_state.unwrap_or_default())),
             unique_users: Arc::new(RwLock::new(state_save.unique_users.unwrap_or_default())),
             pastes: Arc::new(RwLock::new(state_save.pastes.unwrap_or_default())),
+            db_client: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -67,6 +83,7 @@ impl Default for TYRState {
             admin_state: Arc::from(RwLock::from(AdminState::default())),
             unique_users: Arc::new(Default::default()),
             pastes: Arc::new(Default::default()),
+            db_client: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -201,6 +218,7 @@ mod test {
             admin_state: Arc::new(Default::default()),
             unique_users: Arc::new(Default::default()),
             pastes: Arc::new(Default::default()),
+            db_client: Arc::new(Mutex::new(None)),
         };
         state.admin_state.write().unwrap().admin_created = true;
         state
